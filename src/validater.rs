@@ -9,22 +9,17 @@ pub enum FormatError{
     InvalidMin,InvalidMax,
     InvalidSchemaOnData,InvalidSchema,
     InvalidOptions,OptionsNotAllowed,
-    isNotObject
+    IsNotObject
 }
 
 #[derive(Debug)]
 pub enum DataError{
-    Min,Max,NotFound,InvalidDataType,isNotObject,
+    Min,Max,NotFound,InvalidDataType,IsNotObject,
     ExternalDataNotAllowed,
     InvalidMax,InvalidMaxNum,InvalidMaxDataType,
     InvalidMin,InvalidMinNum,InvalidMinDataType,
     OutOfOptions,DataMaxReached,UnmatchedKey,
     UnMatchedSize,UnSupportedData
-}
-
-#[derive(Debug)]
-pub enum Errors{
-    format
 }
 
 #[derive(Debug)]
@@ -34,7 +29,7 @@ pub enum Error{
 
 #[derive(Debug)]
 pub enum RuleError{
-    format(FormatError),data(DataError),None,sub(Box<Error>)
+    Format(FormatError),Data(DataError),None,Sub(Box<Error>)
 }
 
 impl From<RuleError> for Error {
@@ -51,15 +46,15 @@ pub fn run(
 )->Result<(),Error>{
 
     if !format.is_object(){
-        return Err(RuleError::format(FormatError::isNotObject).into());
+        return Err(RuleError::Format(FormatError::IsNotObject).into());
     }
     if !data.is_object(){
-        return Err(RuleError::data(DataError::isNotObject).into());
+        return Err(RuleError::Data(DataError::IsNotObject).into());
     }
     let is_dynamic;
     if schema_type == "dynamic"{
         if data.len() > max_size as usize{
-            return Err(RuleError::data(DataError::DataMaxReached).into());
+            return Err(RuleError::Data(DataError::DataMaxReached).into());
         }
         is_dynamic = true;
     } else {
@@ -76,13 +71,13 @@ pub fn run(
                 if rules["elective"].is_boolean(){
                     let elective = rules["elective"].as_bool().unwrap();
                     if !elective{
-                        return Err(RuleError::data(DataError::NotFound).into());
+                        return Err(RuleError::Data(DataError::NotFound).into());
                     }
                 } else {
-                    return Err(RuleError::data(DataError::NotFound).into());
+                    return Err(RuleError::Data(DataError::NotFound).into());
                 }
             } else {
-                return Err(RuleError::data(DataError::NotFound).into());
+                return Err(RuleError::Data(DataError::NotFound).into());
             }
         }
 
@@ -102,10 +97,10 @@ pub fn run(
 
 }
 
-fn check_field(key:&str,value:&JsonValue,rules:&JsonValue,is_dynamic:&bool)->Result<(),RuleError>{
+fn check_field(_key:&str,value:&JsonValue,rules:&JsonValue,_is_dynamic:&bool)->Result<(),RuleError>{
 
     if !rules.is_object(){
-        return Err(RuleError::format(FormatError::InvalidFormat).into());
+        return Err(RuleError::Format(FormatError::InvalidFormat).into());
     }
 
     match check_rule_data_type(&rules["type"],&value){
@@ -164,11 +159,11 @@ fn check_options(_data_type:&str,value:&JsonValue,rule:&JsonValue)->Result<(),Ru
         !value.is_number() &&
         !value.is_array()
     {
-        return Err(RuleError::format(FormatError::OptionsNotAllowed));
+        return Err(RuleError::Format(FormatError::OptionsNotAllowed));
     }
 
     if !rule.is_array(){
-        return Err(RuleError::format(FormatError::InvalidOptions));
+        return Err(RuleError::Format(FormatError::InvalidOptions));
     }
 
     let mut set = HashSet::new();
@@ -194,7 +189,7 @@ fn check_options(_data_type:&str,value:&JsonValue,rule:&JsonValue)->Result<(),Ru
             match v{
                 Some(c)=>{
                     if !set.contains(c.as_str()){
-                        return Err(RuleError::data(DataError::OutOfOptions));
+                        return Err(RuleError::Data(DataError::OutOfOptions));
                     }
                 },
                 None=>{}
@@ -205,7 +200,7 @@ fn check_options(_data_type:&str,value:&JsonValue,rule:&JsonValue)->Result<(),Ru
     if value.is_string(){
         let v = value.as_str().unwrap();
         if !set.contains(v){
-            return Err(RuleError::data(DataError::OutOfOptions));
+            return Err(RuleError::Data(DataError::OutOfOptions));
         }
     }
 
@@ -214,7 +209,7 @@ fn check_options(_data_type:&str,value:&JsonValue,rule:&JsonValue)->Result<(),Ru
         let n = &v.to_string();
         let p = n.as_str();
         if !set.contains(p){
-            return Err(RuleError::data(DataError::OutOfOptions));
+            return Err(RuleError::Data(DataError::OutOfOptions));
         }
     }
 
@@ -224,10 +219,10 @@ fn check_options(_data_type:&str,value:&JsonValue,rule:&JsonValue)->Result<(),Ru
 
 }
 
-fn check_validate(data_type:&str,value:&JsonValue,rule:&JsonValue)->Result<(),RuleError>{
+fn check_validate(_data_type:&str,value:&JsonValue,rule:&JsonValue)->Result<(),RuleError>{
 
     if !value.is_object(){
-        return Err(RuleError::format(FormatError::InvalidSchemaOnData));
+        return Err(RuleError::Format(FormatError::InvalidSchemaOnData));
     }
 
     if !rule["schema"].is_object(){
@@ -260,7 +255,7 @@ fn check_validate(data_type:&str,value:&JsonValue,rule:&JsonValue)->Result<(),Ru
             return Ok(());
         },
         Err(e)=>{
-            return Err(RuleError::sub(Box::new(e)));
+            return Err(RuleError::Sub(Box::new(e)));
         }
     }
 
@@ -271,23 +266,23 @@ fn check_max(data_type:&str,value:&JsonValue,rule:&JsonValue)->Result<(),RuleErr
     let max;
     match rule.as_u64(){
         Some(v)=>{max = v;},
-        None=>{return Err(RuleError::data(DataError::InvalidMax));}
+        None=>{return Err(RuleError::Data(DataError::InvalidMax));}
     }
 
     if data_type == "string"{
         let v = value.as_str().unwrap();
-        if (v.len() as u64) > max{return Err(RuleError::data(DataError::Max));}
+        if (v.len() as u64) > max{return Err(RuleError::Data(DataError::Max));}
     } else if data_type == "number"{
         match value.as_u64(){
-            Some(v)=>{if v > max{return Err(RuleError::data(DataError::Max));}},
-            None=>{return Err(RuleError::data(DataError::InvalidMaxNum));}
+            Some(v)=>{if v > max{return Err(RuleError::Data(DataError::Max));}},
+            None=>{return Err(RuleError::Data(DataError::InvalidMaxNum));}
         }
     } else if data_type == "array"{
-        if (value.len() as u64) > max{return Err(RuleError::data(DataError::Max));}
+        if (value.len() as u64) > max{return Err(RuleError::Data(DataError::Max));}
     } else if data_type == "object"{
-        if (value.len() as u64) > max{return Err(RuleError::data(DataError::Max));}
+        if (value.len() as u64) > max{return Err(RuleError::Data(DataError::Max));}
     } else {
-        return Err(RuleError::data(DataError::InvalidMaxDataType));
+        return Err(RuleError::Data(DataError::InvalidMaxDataType));
     }
 
     return Ok(());
@@ -299,23 +294,23 @@ fn check_min(data_type:&str,value:&JsonValue,rule:&JsonValue)->Result<(),RuleErr
     let min;
     match rule.as_u64(){
         Some(v)=>{min = v;},
-        None=>{return Err(RuleError::data(DataError::InvalidMin));}
+        None=>{return Err(RuleError::Data(DataError::InvalidMin));}
     }
 
     if data_type == "string"{
         let v = value.as_str().unwrap();
-        if (v.len() as u64) < min{return Err(RuleError::data(DataError::Min));}
+        if (v.len() as u64) < min{return Err(RuleError::Data(DataError::Min));}
     } else if data_type == "number"{
         match value.as_u64(){
-            Some(v)=>{if v < min{return Err(RuleError::data(DataError::Min));}},
-            None=>{return Err(RuleError::data(DataError::InvalidMinNum));}
+            Some(v)=>{if v < min{return Err(RuleError::Data(DataError::Min));}},
+            None=>{return Err(RuleError::Data(DataError::InvalidMinNum));}
         }
     } else if data_type == "array"{
-        if (value.len() as u64) < min{return Err(RuleError::data(DataError::Min));}
+        if (value.len() as u64) < min{return Err(RuleError::Data(DataError::Min));}
     } else if data_type == "object"{
-        if (value.len() as u64) < min{return Err(RuleError::data(DataError::Min));}
+        if (value.len() as u64) < min{return Err(RuleError::Data(DataError::Min));}
     } else {
-        return Err(RuleError::data(DataError::InvalidMinDataType));
+        return Err(RuleError::Data(DataError::InvalidMinDataType));
     }
 
     return Ok(());
@@ -325,7 +320,7 @@ fn check_min(data_type:&str,value:&JsonValue,rule:&JsonValue)->Result<(),RuleErr
 fn check_rule_data_type(rule:&JsonValue,value:&JsonValue)->Result<(),RuleError>{
 
     if !rule.is_string(){
-        return Err(RuleError::format(FormatError::InvalidDataType));
+        return Err(RuleError::Format(FormatError::InvalidDataType));
     }
 
     let rule_data_type = rule.as_str().unwrap();
@@ -337,7 +332,7 @@ fn check_rule_data_type(rule:&JsonValue,value:&JsonValue)->Result<(),RuleError>{
         rule_data_type != "object" &&
         rule_data_type != "array"
     {
-        return Err(RuleError::format(FormatError::InvalidDataType));
+        return Err(RuleError::Format(FormatError::InvalidDataType));
     }
 
     let value_data_type;
@@ -346,11 +341,11 @@ fn check_rule_data_type(rule:&JsonValue,value:&JsonValue)->Result<(),RuleError>{
     if value.is_object(){value_data_type = "object";} else 
     if value.is_array(){value_data_type = "array";} else 
     if value.is_boolean() {value_data_type = "bool";} else {
-        return Err(RuleError::data(DataError::UnSupportedData));
+        return Err(RuleError::Data(DataError::UnSupportedData));
     }
 
     if rule_data_type != value_data_type{
-        return Err(RuleError::data(DataError::InvalidDataType));
+        return Err(RuleError::Data(DataError::InvalidDataType));
     }
 
     return Ok(());
