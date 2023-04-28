@@ -1,6 +1,6 @@
 
 
-use json::object;
-
-mod validate;
+mod validater;
 mod common;
+
+pub use validater::run as validate;

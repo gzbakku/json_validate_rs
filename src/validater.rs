@@ -64,9 +64,9 @@ pub fn run(
         is_dynamic = true;
     } else {
         is_dynamic = false;
-        if data.len() != format.len(){
-            return Err(RuleError::data(DataError::UnMatchedSize).into());
-        }
+        // if data.len() != format.len(){
+        //     return Err(RuleError::data(DataError::UnMatchedSize).into());
+        // }
     }
 
     for (key,rules) in format.entries(){
@@ -157,7 +157,7 @@ fn check_field(key:&str,value:&JsonValue,rules:&JsonValue,is_dynamic:&bool)->Res
 
 }
 
-fn check_options(data_type:&str,value:&JsonValue,rule:&JsonValue)->Result<(),RuleError>{
+fn check_options(_data_type:&str,value:&JsonValue,rule:&JsonValue)->Result<(),RuleError>{
 
     if
         !value.is_string() && 

@@ -17,7 +17,7 @@ fn main() {
         "age":object! {"type":"number","min":18,max:112,"errors":object! {
             "min":"",
             "max":""
-        }},
+        },elective:true},
         "features": object! {type:"array",min:3,max:5,options:["one","two","three"]},
         "games": object! {type:"object",min:1,max:5,validate: object! {
             dynamic:false,
@@ -34,7 +34,7 @@ fn main() {
 
     let data = object! {
         "name":"akku",
-        "age":27,
+        // "age":27,
         "features":["one","two","three"],
         "games":{
             "cricket":{score:2,city:"delhi"},
