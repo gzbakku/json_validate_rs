@@ -19,6 +19,7 @@ this is a simple schema validator for json in rust
 - object = min,max,schema
 
 ```rust
+
 use json_validate_rs;
 
 use json_validate_rs::validate;
