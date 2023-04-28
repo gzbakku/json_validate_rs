@@ -1,0 +1,16 @@
+[package]
+name = "json_validate_rs"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+description = "fast, plug and play firestore lib"
+homepage = "https://github.com/gzbakku/json_validate_rs"
+repository = "https://github.com/gzbakku/json_validate_rs"
+readme = "README.md"
+keywords = ["firestore","easy"]
+categories = ["database"]
+license="MIT"
+
+[dependencies]
+json = "0.12.4"
