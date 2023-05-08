@@ -2,6 +2,7 @@
 use std::convert::From;
 use json::JsonValue;
 use std::collections::HashSet;
+use regex::Regex;
 
 #[derive(Debug)]
 pub enum FormatError{
@@ -19,7 +20,21 @@ pub enum DataError{
     InvalidMax,InvalidMaxNum,InvalidMaxDataType,
     InvalidMin,InvalidMinNum,InvalidMinDataType,
     OutOfOptions,DataMaxReached,UnmatchedKey,
-    UnMatchedSize,UnSupportedData
+    UnMatchedSize,UnSupportedData,InvalidEmail
+}
+
+pub fn validate_email(email:&str)->Result<(),RuleError>{
+
+    let re = Regex::new(
+        r"([\w\d_\-+#$%&*\/^]+)@([\w\d_-]+)[\.]{1,1}([\w\d]+)"
+    ).unwrap();
+
+    if !re.is_match(email){
+        return Err(RuleError::Data(DataError::InvalidEmail));
+    }
+
+    Ok(())
+
 }
 
 #[derive(Debug)]
@@ -110,7 +125,21 @@ fn check_field(_key:&str,value:&JsonValue,rules:&JsonValue,_is_dynamic:&bool)->R
         }
     }
 
-    let data_type = rules["type"].as_str().unwrap();
+    let email_type = "string";
+    let mut data_type = rules["type"].as_str().unwrap();
+
+    if data_type == "email"{
+        let email = value.as_str().unwrap();
+        match validate_email(email){
+            Ok(_)=>{},
+            Err(e)=>{
+                return Err(e);
+            }
+        }
+        data_type = &email_type;
+    }
+
+    // println!("data_type : {:?}",data_type);
 
     if rules.has_key("min"){
         match check_min(&data_type,&value,&rules["min"]){
@@ -330,7 +359,8 @@ fn check_rule_data_type(rule:&JsonValue,value:&JsonValue)->Result<(),RuleError>{
         rule_data_type != "string" &&
         rule_data_type != "number" &&
         rule_data_type != "object" &&
-        rule_data_type != "array"
+        rule_data_type != "array" &&
+        rule_data_type != "email"
     {
         return Err(RuleError::Format(FormatError::InvalidDataType));
     }
@@ -339,9 +369,13 @@ fn check_rule_data_type(rule:&JsonValue,value:&JsonValue)->Result<(),RuleError>{
     if value.is_string(){value_data_type = "string";} else
     if value.is_number(){value_data_type = "number";} else 
     if value.is_object(){value_data_type = "object";} else 
-    if value.is_array(){value_data_type = "array";} else 
+    if value.is_array(){value_data_type = "array";} else
     if value.is_boolean() {value_data_type = "bool";} else {
         return Err(RuleError::Data(DataError::UnSupportedData));
+    }
+
+    if rule_data_type == "email" && value_data_type == "string"{
+        return Ok(());
     }
 
     if rule_data_type != value_data_type{

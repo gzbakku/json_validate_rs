@@ -5,15 +5,30 @@ use json::object;
 mod validater;
 mod common;
 
+// use regex::{Regex,RegexBuilder};
+
 pub use validater::run as validate;
 
-fn main() {
+fn main(){
+
+    if false{
+        validater::validate_email("g@l.c");
+    }
+
+    if true{
+        run();
+    }
+
+}
+
+fn run() {
 
     let format = object! {
         "name":object! {"type":"string","min":3,"max":6,"errors":object! {
             "min":"",
             "max":""
         }},
+        "email":{type:"email",min:3,max:20},
         "age":object! {"type":"number","min":18,max:112,"errors":object! {
             "min":"",
             "max":""
@@ -35,6 +50,7 @@ fn main() {
     let data = object! {
         "name":"akku",
         // "age":27,
+        "email":"gzbakku@gmail.com",
         "features":["one","two","three"],
         "games":{
             "cricket":{score:2,city:"delhi"},
