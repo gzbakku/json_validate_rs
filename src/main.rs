@@ -44,7 +44,9 @@ fn run() {
                     }
                 }}
             }
-        }}
+        }},
+        // "cola":{type:"string"}
+        "cola":{type:"any"}
     };
 
     let data = object! {
@@ -54,14 +56,15 @@ fn run() {
         "features":["one","two","three"],
         "games":{
             "cricket":{score:2,city:"delhi"},
-        }
+        },
+        "cola":false
     };
 
     let run = validate(
         &format,
         &data,
-        "static",
-        4
+        "dynamic",
+        5
     );
 
     println!("run : {:?}",run);

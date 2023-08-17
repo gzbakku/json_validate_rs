@@ -108,6 +108,14 @@ pub fn run(
 
     }
 
+    if !is_dynamic{
+        for (key,_) in data.entries(){
+            if !format.has_key(key){
+                return Err(RuleError::Data(DataError::UnmatchedKey).into());
+            }
+        }
+    }
+
     return Ok(());
 
 }
@@ -139,7 +147,11 @@ fn check_field(_key:&str,value:&JsonValue,rules:&JsonValue,_is_dynamic:&bool)->R
         data_type = &email_type;
     }
 
-    // println!("data_type : {:?}",data_type);
+    if data_type == "any"{
+        if value.is_null(){
+            return Err(RuleError::Data(DataError::NotFound));
+        }
+    }
 
     if rules.has_key("min"){
         match check_min(&data_type,&value,&rules["min"]){
@@ -355,6 +367,7 @@ fn check_rule_data_type(rule:&JsonValue,value:&JsonValue)->Result<(),RuleError>{
     let rule_data_type = rule.as_str().unwrap();
 
     if
+        rule_data_type != "any" &&
         rule_data_type != "bool" &&
         rule_data_type != "string" &&
         rule_data_type != "number" &&
@@ -363,6 +376,10 @@ fn check_rule_data_type(rule:&JsonValue,value:&JsonValue)->Result<(),RuleError>{
         rule_data_type != "email"
     {
         return Err(RuleError::Format(FormatError::InvalidDataType));
+    }
+
+    if rule_data_type == "any"{
+        return Ok(());
     }
 
     let value_data_type;
