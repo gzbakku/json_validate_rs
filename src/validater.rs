@@ -15,11 +15,11 @@ pub enum FormatError{
 
 #[derive(Debug)]
 pub enum DataError{
-    Min,Max,NotFound,InvalidDataType,IsNotObject,
+    Min,Max,NotFound(String),InvalidDataType,IsNotObject,
     ExternalDataNotAllowed,
     InvalidMax,InvalidMaxNum,InvalidMaxDataType,
     InvalidMin,InvalidMinNum,InvalidMinDataType,
-    OutOfOptions,DataMaxReached,UnmatchedKey,
+    OutOfOptions,DataMaxReached,UnmatchedKey(String),
     UnMatchedSize,UnSupportedData,InvalidEmail
 }
 
@@ -86,13 +86,13 @@ pub fn run(
                 if rules["elective"].is_boolean(){
                     let elective = rules["elective"].as_bool().unwrap();
                     if !elective{
-                        return Err(RuleError::Data(DataError::NotFound).into());
+                        return Err(RuleError::Data(DataError::NotFound(key.to_string())).into());
                     }
                 } else {
-                    return Err(RuleError::Data(DataError::NotFound).into());
+                    return Err(RuleError::Data(DataError::NotFound(key.to_string())).into());
                 }
             } else {
-                return Err(RuleError::Data(DataError::NotFound).into());
+                return Err(RuleError::Data(DataError::NotFound(key.to_string())).into());
             }
         }
 
@@ -111,7 +111,7 @@ pub fn run(
     if !is_dynamic{
         for (key,_) in data.entries(){
             if !format.has_key(key){
-                return Err(RuleError::Data(DataError::UnmatchedKey).into());
+                return Err(RuleError::Data(DataError::UnmatchedKey(key.to_string())).into());
             }
         }
     }
@@ -149,7 +149,7 @@ fn check_field(_key:&str,value:&JsonValue,rules:&JsonValue,_is_dynamic:&bool)->R
 
     if data_type == "any"{
         if value.is_null(){
-            return Err(RuleError::Data(DataError::NotFound));
+            return Err(RuleError::Data(DataError::NotFound(_key.to_string())));
         }
     }
 
