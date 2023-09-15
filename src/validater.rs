@@ -307,7 +307,14 @@ fn check_max(data_type:&str,value:&JsonValue,rule:&JsonValue)->Result<(),RuleErr
     let max;
     match rule.as_u64(){
         Some(v)=>{max = v;},
-        None=>{return Err(RuleError::Data(DataError::InvalidMax));}
+        None=>{
+            match rule.as_f64(){
+                Some(_v)=>{
+                    return Ok(check_max_f64(data_type,value,rule)?);
+                },
+                None=>{return Err(RuleError::Data(DataError::InvalidMax));}
+            }
+        }
     }
 
     if data_type == "string"{
@@ -330,12 +337,47 @@ fn check_max(data_type:&str,value:&JsonValue,rule:&JsonValue)->Result<(),RuleErr
 
 }
 
+fn check_max_f64(data_type:&str,value:&JsonValue,rule:&JsonValue)->Result<(),RuleError>{
+
+    let max;
+    match rule.as_f64(){
+        Some(v)=>{max = v;},
+        None=>{return Err(RuleError::Data(DataError::InvalidMax));}
+    }
+
+    if data_type == "string"{
+        let v = value.as_str().unwrap();
+        if (v.len() as f64) > max{return Err(RuleError::Data(DataError::Max));}
+    } else if data_type == "number"{
+        match value.as_f64(){
+            Some(v)=>{if v > max{return Err(RuleError::Data(DataError::Max));}},
+            None=>{return Err(RuleError::Data(DataError::InvalidMaxNum));}
+        }
+    } else if data_type == "array"{
+        if (value.len() as f64) > max{return Err(RuleError::Data(DataError::Max));}
+    } else if data_type == "object"{
+        if (value.len() as f64) > max{return Err(RuleError::Data(DataError::Max));}
+    } else {
+        return Err(RuleError::Data(DataError::InvalidMaxDataType));
+    }
+
+    return Ok(());
+
+}
+
 fn check_min(data_type:&str,value:&JsonValue,rule:&JsonValue)->Result<(),RuleError>{
 
     let min;
     match rule.as_u64(){
         Some(v)=>{min = v;},
-        None=>{return Err(RuleError::Data(DataError::InvalidMin));}
+        None=>{
+            match rule.as_f64(){
+                Some(_v)=>{
+                    return Ok(check_min_f64(data_type,value,rule)?);
+                },
+                None=>{return Err(RuleError::Data(DataError::InvalidMin));}
+            }
+        }
     }
 
     if data_type == "string"{
@@ -350,6 +392,34 @@ fn check_min(data_type:&str,value:&JsonValue,rule:&JsonValue)->Result<(),RuleErr
         if (value.len() as u64) < min{return Err(RuleError::Data(DataError::Min));}
     } else if data_type == "object"{
         if (value.len() as u64) < min{return Err(RuleError::Data(DataError::Min));}
+    } else {
+        return Err(RuleError::Data(DataError::InvalidMinDataType));
+    }
+
+    return Ok(());
+
+}
+
+fn check_min_f64(data_type:&str,value:&JsonValue,rule:&JsonValue)->Result<(),RuleError>{
+
+    let min;
+    match rule.as_f64(){
+        Some(v)=>{min = v;},
+        None=>{return Err(RuleError::Data(DataError::InvalidMin));}
+    }
+
+    if data_type == "string"{
+        let v = value.as_str().unwrap();
+        if (v.len() as f64) < min{return Err(RuleError::Data(DataError::Min));}
+    } else if data_type == "number"{
+        match value.as_f64(){
+            Some(v)=>{if v < min{return Err(RuleError::Data(DataError::Min));}},
+            None=>{return Err(RuleError::Data(DataError::InvalidMinNum));}
+        }
+    } else if data_type == "array"{
+        if (value.len() as f64) < min{return Err(RuleError::Data(DataError::Min));}
+    } else if data_type == "object"{
+        if (value.len() as f64) < min{return Err(RuleError::Data(DataError::Min));}
     } else {
         return Err(RuleError::Data(DataError::InvalidMinDataType));
     }
