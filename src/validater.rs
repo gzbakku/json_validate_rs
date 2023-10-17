@@ -16,7 +16,7 @@ pub enum FormatError{
 #[derive(Debug)]
 pub enum DataError{
     Min,Max,NotFound(String),InvalidDataType,IsNotObject,
-    ExternalDataNotAllowed,
+    ExternalDataNotAllowed,InvalidNum,
     InvalidMax,InvalidMaxNum,InvalidMaxDataType,
     InvalidMin,InvalidMinNum,InvalidMinDataType,
     OutOfOptions,DataMaxReached,UnmatchedKey(String),
@@ -126,7 +126,7 @@ fn check_field(_key:&str,value:&JsonValue,rules:&JsonValue,_is_dynamic:&bool)->R
         return Err(RuleError::Format(FormatError::InvalidFormat).into());
     }
 
-    match check_rule_data_type(&rules["type"],&value){
+    match check_rule_data_type(&rules["type"],&value,rules){
         Ok(_)=>{},
         Err(e)=>{
             return Err(e);
@@ -428,7 +428,7 @@ fn check_min_f64(data_type:&str,value:&JsonValue,rule:&JsonValue)->Result<(),Rul
 
 }
 
-fn check_rule_data_type(rule:&JsonValue,value:&JsonValue)->Result<(),RuleError>{
+fn check_rule_data_type(rule:&JsonValue,value:&JsonValue,field:&JsonValue)->Result<(),RuleError>{
 
     if !rule.is_string(){
         return Err(RuleError::Format(FormatError::InvalidDataType));
@@ -467,6 +467,25 @@ fn check_rule_data_type(rule:&JsonValue,value:&JsonValue)->Result<(),RuleError>{
 
     if rule_data_type != value_data_type{
         return Err(RuleError::Data(DataError::InvalidDataType));
+    }
+
+    if rule_data_type == "number" && field["int"].is_string(){
+        let int_t = field["int"].as_str().unwrap();
+        if 
+            int_t == "u8" && value.as_u8().is_none() ||
+            int_t == "u16" && value.as_u16().is_none() ||
+            int_t == "u32" && value.as_u32().is_none() ||
+            int_t == "u64" && value.as_u64().is_none() ||
+
+            int_t == "i8" && value.as_i8().is_none() ||
+            int_t == "i16" && value.as_i16().is_none() ||
+            int_t == "i32" && value.as_i32().is_none() ||
+            int_t == "i64" && value.as_i64().is_none() ||
+
+            int_t == "f64" && value.as_f64().is_none()
+        {
+            return Err(RuleError::Data(DataError::InvalidNum));
+        }
     }
 
     return Ok(());
