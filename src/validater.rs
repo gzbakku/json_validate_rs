@@ -10,7 +10,7 @@ pub enum FormatError{
     InvalidMin,InvalidMax,
     InvalidSchemaOnData,InvalidSchema,
     InvalidOptions,OptionsNotAllowed,
-    IsNotObject
+    IsNotObject,IsNotStringArray
 }
 
 #[derive(Debug)]
@@ -20,7 +20,9 @@ pub enum DataError{
     InvalidMax,InvalidMaxNum,InvalidMaxDataType,
     InvalidMin,InvalidMinNum,InvalidMinDataType,
     OutOfOptions,DataMaxReached,UnmatchedKey(String),
-    UnMatchedSize,UnSupportedData,InvalidEmail
+    UnMatchedSize,UnSupportedData,InvalidEmail,
+    MissingRequiredOptionField(String),
+    MissingRequiredField(String),
 }
 
 pub fn validate_email(email:&str)->Result<(),RuleError>{
@@ -98,7 +100,9 @@ pub fn run(
 
         if data.has_key(key){
             let value = &data[key];
-            match check_field(key, value, rules, &is_dynamic){
+            match check_field(
+                key, value, rules, &is_dynamic, &data
+            ){
                 Ok(_)=>{},
                 Err(e)=>{
                     return Err(Error::Key(key.to_string(), e));
@@ -120,7 +124,11 @@ pub fn run(
 
 }
 
-fn check_field(_key:&str,value:&JsonValue,rules:&JsonValue,_is_dynamic:&bool)->Result<(),RuleError>{
+fn check_field(
+    _key:&str,value:&JsonValue,
+    rules:&JsonValue,_is_dynamic:&bool,
+    all_values:&JsonValue
+)->Result<(),RuleError>{
 
     if !rules.is_object(){
         return Err(RuleError::Format(FormatError::InvalidFormat).into());
@@ -150,6 +158,19 @@ fn check_field(_key:&str,value:&JsonValue,rules:&JsonValue,_is_dynamic:&bool)->R
     if data_type == "any"{
         if value.is_null(){
             return Err(RuleError::Data(DataError::NotFound(_key.to_string())));
+        }
+    }
+
+    if 
+        data_type == "string" && 
+        rules.has_key("options") &&
+        rules.has_key("option_required_fields")
+    {
+        match check_option_required_fields(&value,&rules["option_required_fields"],&all_values){
+            Ok(_)=>{},
+            Err(e)=>{
+                return Err(e);
+            }
         }
     }
 
@@ -187,6 +208,77 @@ fn check_field(_key:&str,value:&JsonValue,rules:&JsonValue,_is_dynamic:&bool)->R
                 return Err(e);
             }
         }
+    }
+
+    if rules.has_key("required_fields"){
+        match check_required_fields(&rules["required_fields"],&all_values){
+            Ok(_)=>{},
+            Err(e)=>{
+                return Err(e);
+            }
+        }
+    }
+
+    return Ok(());
+
+}
+
+fn check_required_fields(rule:&JsonValue,all_values:&JsonValue)->Result<(),RuleError>{
+
+    if !rule.is_array(){
+        return Err(RuleError::Format(FormatError::IsNotObject));
+    }
+    if !all_values.is_object(){
+        return Err(RuleError::Format(FormatError::IsNotObject));
+    }
+
+    for item in rule.members(){
+        if !item.is_string(){
+            return Err(RuleError::Format(FormatError::IsNotStringArray));
+        }
+        let value = item.as_str().unwrap();
+        if !all_values.has_key(value){
+            return Err(RuleError::Data(DataError::MissingRequiredField(value.to_string()))); 
+        }
+    }
+
+    return Ok(());
+
+}
+
+fn check_option_required_fields(value:&JsonValue,rule:&JsonValue,all_values:&JsonValue)->Result<(),RuleError>{
+
+    if !rule.is_object(){
+        return Err(RuleError::Format(FormatError::IsNotObject));
+    }
+    if !all_values.is_object(){
+        return Err(RuleError::Format(FormatError::IsNotObject));
+    }
+    if !value.is_string(){
+        return Err(RuleError::Data(DataError::InvalidDataType));
+    }
+    let value = value.as_str().unwrap();
+    if !rule.has_key(value){
+        return Ok(());
+    }
+
+    if rule[value].is_array(){
+        for item in rule[value].members(){
+            if !item.is_string(){
+                return Err(RuleError::Format(FormatError::IsNotStringArray));
+            }
+            let value = item.as_str().unwrap();
+            if !all_values.has_key(value){
+                return Err(RuleError::Data(DataError::MissingRequiredField(value.to_string()))); 
+            }
+        }
+    } else if rule[value].is_string(){
+        let field_name = rule[value].as_str().unwrap();
+        if !all_values.has_key(field_name){
+            return Err(RuleError::Data(DataError::MissingRequiredField(field_name.to_string()))); 
+        }
+    } else {
+        return Err(RuleError::Data(DataError::InvalidDataType));
     }
 
     return Ok(());

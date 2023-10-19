@@ -24,40 +24,24 @@ fn main(){
 fn run() {
 
     let format = object! {
-        "name":object! {"type":"string","min":3,"max":6,"errors":object! {
-            "min":"",
-            "max":""
-        }},
-        "email":{type:"email",min:3,max:20},
-        "age":object! {"type":"number","min":18,max:112,"errors":object! {
-            "min":"",
-            "max":""
-        },elective:true},
-        "features": object! {type:"array",min:3,max:5,options:["one","two","three"]},
-        "games": object! {type:"object",min:1,max:5,validate: object! {
-            dynamic:false,
-            schema:object!{
-                "cricket":{type:"object",min:2,max:2,validate:object!{
-                    schema:{
-                        "score":{type:"number",min:1,max:10,options:["2"]},
-                        "city":{type:"string",min:2,max:10}
-                    }
-                }}
-            }
-        }},
-        // "cola":{type:"string"}
-        "cola":{type:"any"}
+        "action":object! {
+            "type":"string",
+            "options":["name","age"],
+            "option_required_fields":{
+                "name":["name","age"]
+            },
+            "required_fields":["cola"]
+        },
+        "name":{type:"any",elective:true},
+        "age":{type:"any",elective:true},
+        "cola":{type:"any",elective:true},
     };
 
     let data = object! {
-        "name":"akku",
+        "action":"name",
         // "age":27,
-        "email":"gzbakku@gmail.com",
-        "features":["one","two","three"],
-        "games":{
-            "cricket":{score:2,city:"delhi"},
-        },
-        "cola":false
+        "name":"akku",
+        "cola":"black"
     };
 
     let run = validate(
