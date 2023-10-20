@@ -24,24 +24,22 @@ fn main(){
 fn run() {
 
     let format = object! {
-        "action":object! {
-            "type":"string",
-            "options":["name","age"],
-            "option_required_fields":{
-                "name":["name","age"]
-            },
-            "required_fields":["cola"]
+        "name":object! {
+            "type":"array",
+            "options":["akku","nikku"],
+            "validate":{
+                "children_type":"object",
+                "schema":{
+                    "name":{type:"string"}
+                }
+            }
         },
-        "name":{type:"any",elective:true},
-        "age":{type:"any",elective:true},
-        "cola":{type:"any",elective:true},
     };
 
     let data = object! {
-        "action":"name",
-        // "age":27,
-        "name":"akku",
-        "cola":"black"
+        "name":[
+            {name:19}
+        ]
     };
 
     let run = validate(

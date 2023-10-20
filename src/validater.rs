@@ -10,7 +10,8 @@ pub enum FormatError{
     InvalidMin,InvalidMax,
     InvalidSchemaOnData,InvalidSchema,
     InvalidOptions,OptionsNotAllowed,
-    IsNotObject,IsNotStringArray
+    IsNotObject,IsNotStringArray,
+    ChildrenTypeMissing,InvalidChildrenType
 }
 
 #[derive(Debug)]
@@ -352,15 +353,7 @@ fn check_options(_data_type:&str,value:&JsonValue,rule:&JsonValue)->Result<(),Ru
 
 }
 
-fn check_validate(_data_type:&str,value:&JsonValue,rule:&JsonValue)->Result<(),RuleError>{
-
-    if !value.is_object(){
-        return Err(RuleError::Format(FormatError::InvalidSchemaOnData));
-    }
-
-    if !rule["schema"].is_object(){
-        return Ok(());
-    }
+fn check_validate(data_type:&str,value:&JsonValue,rule:&JsonValue)->Result<(),RuleError>{
 
     let schema_type;
     if rule["dynamic"].is_boolean(){
@@ -379,6 +372,67 @@ fn check_validate(_data_type:&str,value:&JsonValue,rule:&JsonValue)->Result<(),R
         max_size = rule["maxSize"].as_u32().unwrap();
     } else {
         max_size = 0;
+    }
+
+    if data_type == "array"{
+
+        if !value.is_array(){
+            return Err(RuleError::Data(DataError::UnSupportedData));
+        }
+
+        if !rule["children_type"].is_string(){
+            return Err(RuleError::Format(FormatError::ChildrenTypeMissing));
+        }
+
+        let children_type = rule["children_type"].as_str().unwrap();
+
+        let child_data_type;
+        if children_type == "bool"{
+            child_data_type = "bool";
+        } else
+        if children_type == "string"{
+            child_data_type = "string";
+        } else
+        if children_type == "number"{
+            child_data_type = "number";
+        } else
+        if children_type == "array"{
+            child_data_type = "array";
+        } else
+        if children_type == "object"{
+            child_data_type = "object";
+        } else {
+            return Err(RuleError::Format(FormatError::InvalidChildrenType));
+        }
+
+        for item in value.members(){
+            let item_data_type = get_json_value_data_type(item)?;
+            if item_data_type != child_data_type{
+                return Err(RuleError::Data(DataError::InvalidDataType));
+            }
+            if child_data_type == "object" && rule["schema"].is_object(){
+                let schema = &rule["schema"];
+                match run(schema,item,schema_type,max_size){
+                    Ok(_)=>{
+                        return Ok(());
+                    },
+                    Err(e)=>{
+                        return Err(RuleError::Sub(Box::new(e)));
+                    }
+                }
+            }
+        }
+
+        return Ok(());
+
+    }
+
+    if !value.is_object(){
+        return Err(RuleError::Format(FormatError::InvalidSchemaOnData));
+    }
+
+    if !rule["schema"].is_object(){
+        return Ok(());
     }
 
     let schema = &rule["schema"];
@@ -582,4 +636,16 @@ fn check_rule_data_type(rule:&JsonValue,value:&JsonValue,field:&JsonValue)->Resu
 
     return Ok(());
 
+}
+
+fn get_json_value_data_type(value:&JsonValue)->Result<&'static str,RuleError>{
+    let value_data_type;
+    if value.is_string(){value_data_type = "string";} else
+    if value.is_number(){value_data_type = "number";} else 
+    if value.is_object(){value_data_type = "object";} else 
+    if value.is_array(){value_data_type = "array";} else
+    if value.is_boolean() {value_data_type = "bool";} else {
+        return Err(RuleError::Data(DataError::UnSupportedData));
+    }
+    Ok(value_data_type)
 }
