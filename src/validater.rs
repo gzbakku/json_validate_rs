@@ -11,7 +11,8 @@ pub enum FormatError{
     InvalidSchemaOnData,InvalidSchema,
     InvalidOptions,OptionsNotAllowed,
     IsNotObject,IsNotStringArray,
-    ChildrenTypeMissing,InvalidChildrenType
+    ChildrenTypeMissing,InvalidChildrenType,
+    InvalidArrayUniqueKeyType
 }
 
 #[derive(Debug)]
@@ -24,6 +25,8 @@ pub enum DataError{
     UnMatchedSize,UnSupportedData,InvalidEmail,
     MissingRequiredOptionField(String),
     MissingRequiredField(String),
+    ArrayUniqueKeyNotFound(String),ArrayUniqueKeyNotStringType(String),
+    ArrayUniqueKeyDuplicate(String,String)
 }
 
 pub fn validate_email(email:&str)->Result<(),RuleError>{
@@ -413,13 +416,47 @@ fn check_validate(data_type:&str,value:&JsonValue,rule:&JsonValue)->Result<(),Ru
             if child_data_type == "object" && rule["schema"].is_object(){
                 let schema = &rule["schema"];
                 match run(schema,item,schema_type,max_size){
-                    Ok(_)=>{
-                        return Ok(());
-                    },
+                    Ok(_)=>{},
                     Err(e)=>{
                         return Err(RuleError::Sub(Box::new(e)));
                     }
                 }
+            }
+        }
+
+        if children_type == "object" && rule["unique_keys"].is_array(){
+            for item in rule["unique_keys"].members(){
+                if !item.is_string(){
+                    return Err(RuleError::Format(
+                        FormatError::InvalidArrayUniqueKeyType
+                    ));
+                }
+                let u_key = item.as_str().unwrap().to_string();
+                let mut map = HashSet::new();
+                for item in value.members(){
+                    if !item.has_key(&u_key){
+                        return Err(RuleError::Data(
+                            DataError::ArrayUniqueKeyNotFound(u_key)
+                        ));
+                    }
+                    if !item[&u_key].is_string(){
+                        return Err(RuleError::Data(
+                            DataError::ArrayUniqueKeyNotStringType(u_key)
+                        ));
+                    }
+                    let u_key_val = item[&u_key].as_str().unwrap();
+                    // println!("u_key_val : {u_key_val}");
+                    if map.contains(u_key_val){
+                        return Err(RuleError::Data(
+                            DataError::ArrayUniqueKeyDuplicate(
+                                u_key,
+                                u_key_val.to_string()
+                            )
+                        ));
+                    } else {
+                        map.insert(u_key_val);
+                    }
+                } 
             }
         }
 

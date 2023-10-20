@@ -31,14 +31,20 @@ fn run() {
                 "children_type":"object",
                 "schema":{
                     "name":{type:"string"}
-                }
+                },
+                "unique_keys":[
+                    "name"
+                ]
             }
         },
     };
 
     let data = object! {
         "name":[
-            {name:19}
+            // "akku"
+            {name:"akku"},
+            // {name:"akku"},
+            {name:"nikku"},
         ]
     };
 
