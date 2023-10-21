@@ -37,6 +37,13 @@ fn run() {
                 ]
             }
         },
+        "games":object! {
+            "type":"array",
+            "validate":{
+                "children_type":"string",
+                "unique":true
+            }
+        },
     };
 
     let data = object! {
@@ -45,6 +52,9 @@ fn run() {
             {name:"akku"},
             // {name:"akku"},
             {name:"nikku"},
+        ],
+        "games":[
+            "gta","gta.1"
         ]
     };
 

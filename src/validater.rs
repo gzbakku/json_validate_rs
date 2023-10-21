@@ -26,7 +26,8 @@ pub enum DataError{
     MissingRequiredOptionField(String),
     MissingRequiredField(String),
     ArrayUniqueKeyNotFound(String),ArrayUniqueKeyNotStringType(String),
-    ArrayUniqueKeyDuplicate(String,String)
+    ArrayUniqueKeyDuplicate(String,String),DuplicateArrayString(String),
+    ArrayUniqueValueNotString
 }
 
 pub fn validate_email(email:&str)->Result<(),RuleError>{
@@ -457,6 +458,29 @@ fn check_validate(data_type:&str,value:&JsonValue,rule:&JsonValue)->Result<(),Ru
                         map.insert(u_key_val);
                     }
                 } 
+            }
+        }
+
+        if 
+            children_type == "string" && 
+            rule["unique"].is_boolean() &&
+            rule["unique"].as_bool().unwrap()
+        {
+            let mut map = HashSet::new();
+            for item in value.members(){
+                if !item.is_string(){
+                    return Err(RuleError::Data(
+                        DataError::ArrayUniqueValueNotString
+                    ));
+                }
+                let s = item.as_str().unwrap().to_string();
+                if map.contains(&s){
+                    return Err(RuleError::Data(
+                        DataError::DuplicateArrayString(s)
+                    ));
+                } else {
+                    map.insert(s);
+                }
             }
         }
 
