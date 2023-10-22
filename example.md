@@ -1,25 +1,4 @@
-
-
-use json::object;
-
-mod validater;
-mod common;
-
-// use regex::{Regex,RegexBuilder};
-
-pub use validater::run as validate;
-
-fn main(){
-
-    if false{
-        validater::validate_email("g@l.c");
-    }
-
-    if true{
-        check();
-    }
-
-}
+```rust
 
 fn check() {
 
@@ -191,3 +170,5 @@ fn check() {
     println!("run : {:?}",run);
 
 }
+
+```

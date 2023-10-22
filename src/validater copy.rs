@@ -27,7 +27,7 @@ pub enum DataError{
     MissingRequiredField(String),
     ArrayUniqueKeyNotFound(String),ArrayUniqueKeyNotStringType(String),
     ArrayUniqueKeyDuplicate(String,String),DuplicateArrayString(String),
-    ArrayUniqueValueNotString,InvalidChildDataType(String,String)
+    ArrayUniqueValueNotString
 }
 
 pub fn validate_email(email:&str)->Result<(),RuleError>{
@@ -60,10 +60,6 @@ impl From<RuleError> for Error {
     }
 }
 
-#[doc = include_str!("../example.md")]
-///schema type can be
-///dynamic validation allows undefined fields
-///static validation only allows defined fields
 pub fn run(
     format:&JsonValue,
     data:&JsonValue,
@@ -395,8 +391,27 @@ fn check_validate(data_type:&str,value:&JsonValue,rule:&JsonValue)->Result<(),Ru
         }
 
         let children_type = rule["children_type"].as_str().unwrap();
-        let child_data_type = children_type;
-        if !valid_child_type.contains(&child_data_type){
+
+        if !valid_child_type.contains(&children_type){
+            return Err(RuleError::Format(FormatError::InvalidChildrenType));
+        }
+
+        let child_data_type;
+        if children_type == "bool"{
+            child_data_type = "bool";
+        } else
+        if children_type == "string"{
+            child_data_type = "string";
+        } else
+        if children_type == "number"{
+            child_data_type = "number";
+        } else
+        if children_type == "array"{
+            child_data_type = "array";
+        } else
+        if children_type == "object"{
+            child_data_type = "object";
+        } else {
             return Err(RuleError::Format(FormatError::InvalidChildrenType));
         }
 
@@ -405,8 +420,8 @@ fn check_validate(data_type:&str,value:&JsonValue,rule:&JsonValue)->Result<(),Ru
             if item_data_type != child_data_type{
                 return Err(RuleError::Data(DataError::InvalidDataType));
             }
-            if child_data_type == "object" && rule["children_schema"].is_object(){
-                let schema = &rule["children_schema"];
+            if child_data_type == "object" && rule["schema"].is_object(){
+                let schema = &rule["schema"];
                 match run(schema,item,schema_type,max_size){
                     Ok(_)=>{},
                     Err(e)=>{
@@ -479,98 +494,50 @@ fn check_validate(data_type:&str,value:&JsonValue,rule:&JsonValue)->Result<(),Ru
 
     }
 
-    if data_type == "object"{
-
-        if !value.is_object(){
-            return Err(RuleError::Format(FormatError::InvalidSchemaOnData));
-        }
-    
-        if rule["schema"].is_object(){
-            let schema = &rule["schema"];
-            match run(schema,value,schema_type,max_size){
-                Ok(_)=>{
-                    return Ok(());
-                },
-                Err(e)=>{
-                    return Err(RuleError::Sub(Box::new(e)));
-                }
-            }
-        }
-    
-        if 
-            rule["children_type"].is_string()
-        {
-            let children_type = rule["children_type"].as_str().unwrap();
-            // let child_data_type = children_type;
-            if !valid_child_type.contains(&children_type){
-                return Err(RuleError::Format(FormatError::InvalidChildrenType));
-            }
-            for (_,value) in value.entries(){
-                let item_data_type = get_json_value_data_type(value)?;
-                if item_data_type != children_type{
-                    println!("children_type : {children_type}");
-                    println!("item_data_type : {item_data_type}");
-                    return Err(RuleError::Data(DataError::InvalidChildDataType(
-                        children_type.to_string(),
-                        item_data_type.to_string(),
-                    )));
-                }
-            }
-        }
-
-        if 
-            rule["children_schema"].is_object()
-        {
-            let schema = &rule["children_schema"];
-            for (_,t_val) in value.entries(){
-                match run(schema,t_val,schema_type,max_size){
-                    Ok(_)=>{
-                        return Ok(());
-                    },
-                    Err(e)=>{
-                        return Err(RuleError::Sub(Box::new(e)));
-                    }
-                }
-            }
-        }
-        
-        return Ok(());
-
+    if !value.is_object(){
+        return Err(RuleError::Format(FormatError::InvalidSchemaOnData));
     }
 
-    // Err()
+    if !rule["schema"].is_object(){
+        return Ok(());
+    }
 
-    Ok(())
+    let schema = &rule["schema"];
+
+    match run(schema,value,schema_type,max_size){
+        Ok(_)=>{
+            return Ok(());
+        },
+        Err(e)=>{
+            return Err(RuleError::Sub(Box::new(e)));
+        }
+    }
 
 }
 
 fn check_max(data_type:&str,value:&JsonValue,rule:&JsonValue)->Result<(),RuleError>{
 
-    if data_type == "number"{
-        let r;
-        if value.as_u64().is_some() && rule.as_u64().is_some(){
-            r = value.as_u64().unwrap() > rule.as_u64().unwrap();
-        } else
-        if value.as_i64().is_some() && rule.as_i64().is_some(){
-            r = value.as_i64().unwrap() > rule.as_i64().unwrap();
-        } else
-        if value.as_f64().is_some() && rule.as_f64().is_some(){
-            r = value.as_f64().unwrap() > rule.as_f64().unwrap();
-        } else {
-            return Err(RuleError::Data(DataError::InvalidMaxNum));
+    let max;
+    match rule.as_u64(){
+        Some(v)=>{max = v;},
+        None=>{
+            match rule.as_f64(){
+                Some(_v)=>{
+                    return Ok(check_max_f64(data_type,value,rule)?);
+                },
+                None=>{return Err(RuleError::Data(DataError::InvalidMax));}
+            }
         }
-        if r{return Err(RuleError::Data(DataError::Max));}
-        return Ok(());
     }
 
-    if !rule.as_u64().is_some(){
-        return Err(RuleError::Data(DataError::InvalidMax));
-    }
-
-    let max = rule.as_u64().unwrap();
     if data_type == "string"{
         let v = value.as_str().unwrap();
         if (v.len() as u64) > max{return Err(RuleError::Data(DataError::Max));}
+    } else if data_type == "number"{
+        match value.as_u64(){
+            Some(v)=>{if v > max{return Err(RuleError::Data(DataError::Max));}},
+            None=>{return Err(RuleError::Data(DataError::InvalidMaxNum));}
+        }
     } else if data_type == "array"{
         if (value.len() as u64) > max{return Err(RuleError::Data(DataError::Max));}
     } else if data_type == "object"{
@@ -583,37 +550,89 @@ fn check_max(data_type:&str,value:&JsonValue,rule:&JsonValue)->Result<(),RuleErr
 
 }
 
+fn check_max_f64(data_type:&str,value:&JsonValue,rule:&JsonValue)->Result<(),RuleError>{
+
+    let max;
+    match rule.as_f64(){
+        Some(v)=>{max = v;},
+        None=>{return Err(RuleError::Data(DataError::InvalidMax));}
+    }
+
+    if data_type == "string"{
+        let v = value.as_str().unwrap();
+        if (v.len() as f64) > max{return Err(RuleError::Data(DataError::Max));}
+    } else if data_type == "number"{
+        match value.as_f64(){
+            Some(v)=>{if v > max{return Err(RuleError::Data(DataError::Max));}},
+            None=>{return Err(RuleError::Data(DataError::InvalidMaxNum));}
+        }
+    } else if data_type == "array"{
+        if (value.len() as f64) > max{return Err(RuleError::Data(DataError::Max));}
+    } else if data_type == "object"{
+        if (value.len() as f64) > max{return Err(RuleError::Data(DataError::Max));}
+    } else {
+        return Err(RuleError::Data(DataError::InvalidMaxDataType));
+    }
+
+    return Ok(());
+
+}
+
 fn check_min(data_type:&str,value:&JsonValue,rule:&JsonValue)->Result<(),RuleError>{
 
-    if data_type == "number"{
-        let r;
-        if value.as_u64().is_some() && rule.as_u64().is_some(){
-            r = value.as_u64().unwrap() < rule.as_u64().unwrap();
-        } else
-        if value.as_i64().is_some() && rule.as_i64().is_some(){
-            r = value.as_i64().unwrap() < rule.as_i64().unwrap();
-        } else
-        if value.as_f64().is_some() && rule.as_f64().is_some(){
-            r = value.as_f64().unwrap() < rule.as_f64().unwrap();
-        } else {
-            return Err(RuleError::Data(DataError::InvalidMinNum));
+    let min;
+    match rule.as_u64(){
+        Some(v)=>{min = v;},
+        None=>{
+            match rule.as_f64(){
+                Some(_v)=>{
+                    return Ok(check_min_f64(data_type,value,rule)?);
+                },
+                None=>{return Err(RuleError::Data(DataError::InvalidMin));}
+            }
         }
-        if r{return Err(RuleError::Data(DataError::Max));}
-        return Ok(());
     }
 
-    if !rule.as_u64().is_some(){
-        return Err(RuleError::Data(DataError::InvalidMin));
-    }
-
-    let min = rule.as_u64().unwrap();
     if data_type == "string"{
         let v = value.as_str().unwrap();
         if (v.len() as u64) < min{return Err(RuleError::Data(DataError::Min));}
+    } else if data_type == "number"{
+        match value.as_u64(){
+            Some(v)=>{if v < min{return Err(RuleError::Data(DataError::Min));}},
+            None=>{return Err(RuleError::Data(DataError::InvalidMinNum));}
+        }
     } else if data_type == "array"{
         if (value.len() as u64) < min{return Err(RuleError::Data(DataError::Min));}
     } else if data_type == "object"{
         if (value.len() as u64) < min{return Err(RuleError::Data(DataError::Min));}
+    } else {
+        return Err(RuleError::Data(DataError::InvalidMinDataType));
+    }
+
+    return Ok(());
+
+}
+
+fn check_min_f64(data_type:&str,value:&JsonValue,rule:&JsonValue)->Result<(),RuleError>{
+
+    let min;
+    match rule.as_f64(){
+        Some(v)=>{min = v;},
+        None=>{return Err(RuleError::Data(DataError::InvalidMin));}
+    }
+
+    if data_type == "string"{
+        let v = value.as_str().unwrap();
+        if (v.len() as f64) < min{return Err(RuleError::Data(DataError::Min));}
+    } else if data_type == "number"{
+        match value.as_f64(){
+            Some(v)=>{if v < min{return Err(RuleError::Data(DataError::Min));}},
+            None=>{return Err(RuleError::Data(DataError::InvalidMinNum));}
+        }
+    } else if data_type == "array"{
+        if (value.len() as f64) < min{return Err(RuleError::Data(DataError::Min));}
+    } else if data_type == "object"{
+        if (value.len() as f64) < min{return Err(RuleError::Data(DataError::Min));}
     } else {
         return Err(RuleError::Data(DataError::InvalidMinDataType));
     }
