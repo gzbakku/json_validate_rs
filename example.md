@@ -119,6 +119,22 @@ fn check() {
             }
         },
 
+        "movie_reviews":object! {
+            "type":"object",
+            "validate":{
+                "children_type":"array",
+                "array_validate":{
+                    "array_child_type":"object",
+                    "validate":{
+                        "schema":{
+                            "review":{"type":"string"}
+                        },
+                    }
+                }
+            },
+            "elective":true
+        }
+
     };
 
     let data = object! {
@@ -158,13 +174,21 @@ fn check() {
             "country":"india"
         },
 
+        "movie_reviews":{
+            // "king":["akku","gzbakku"]
+            // "king":[11,12],
+            "king":[
+                {"review":"good king"}
+            ]
+        }
+
     };
 
     let run = validate(
         &format,
         &data,
         "dynamic",
-        10
+        11
     );
 
     println!("run : {:?}",run);

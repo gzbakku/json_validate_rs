@@ -533,12 +533,82 @@ fn check_validate(data_type:&str,value:&JsonValue,rule:&JsonValue)->Result<(),Ru
                 }
             }
         }
+
+        if 
+            rule["children_type"] == "array" && 
+            rule["array_validate"].is_object()
+        {
+            let array_validate = &rule["array_validate"];
+            if array_validate["array_child_type"].is_string(){
+                let array_child_type = array_validate["array_child_type"].as_str().unwrap();
+                if !valid_child_type.contains(&array_child_type){
+                    return Err(RuleError::Format(FormatError::InvalidChildrenType));
+                }
+                for (_,t_val) in value.entries(){
+                    for array_value in t_val.members(){
+                        let array_value_type = get_json_value_data_type(array_value)?;
+                        if array_value_type != array_child_type{
+                            return Err(RuleError::Data(DataError::InvalidDataType));
+                        }
+                        if 
+                            array_child_type == "object" &&
+                            array_validate["validate"].is_object()
+                        {
+                            validate_array_children_schema(
+                                &array_validate["validate"],
+                                array_value
+                            )?;
+                        }
+                    }
+                }
+            }
+        }
         
         return Ok(());
 
     }
 
     // Err()
+
+    Ok(())
+
+}
+
+fn validate_array_children_schema(
+    rule:&JsonValue,
+    value:&JsonValue
+)->Result<(),RuleError>{
+
+    if !rule["schema"].is_object(){
+        return Err(RuleError::Format(FormatError::InvalidSchema)); 
+    }
+
+    let schema_type;
+    if rule["dynamic"].is_boolean(){
+        let v = rule["dynamic"].as_bool().unwrap();
+        if v{
+            schema_type = "dynamic";
+        } else {
+            schema_type = "static";
+        }
+    } else {
+        schema_type = "static";
+    }
+
+    let max_size;
+    if rule["maxSize"].is_string(){
+        max_size = rule["maxSize"].as_u32().unwrap();
+    } else {
+        max_size = 0;
+    }
+
+    let schema = &rule["schema"];
+    match run(schema,value,schema_type,max_size){
+        Ok(_)=>{},
+        Err(e)=>{
+            return Err(RuleError::Sub(Box::new(e)));
+        }
+    }
 
     Ok(())
 
