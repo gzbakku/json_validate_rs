@@ -115,6 +115,20 @@ fn check() {
             "elective":true
         },
 
+        "foods":object! {
+            "type":"array",
+            "min":1,"max":10,
+            //only these strings will be allowed if set
+            "validate":{
+                "children_type":"object",
+                //nested object validation
+                "validate_nested_object":{
+                    "children_type":"number"
+                }
+            },
+            "elective":true
+        },
+
         //-----------------------------
         //object validations
         //-----------------------------
@@ -154,6 +168,44 @@ fn check() {
                 }
             },
             "elective":true
+        },
+
+        //validate nested object
+        //can do schema and children validation on nested objects
+        //can also do nested object validation on array object type children
+        "deep_object_validate_one":object! {
+            "type":"object",
+            "validate":{
+                "children_type":"object",
+                "validate_nested_object":{
+                    "validate_nested_object":{
+                        "validate_nested_object":{
+                            "schema":{
+                                "deep":{type:"string"}
+                            }
+                        }
+                    }
+                }
+            },
+            "elective":true
+        },
+
+        "deep_object_validate_two":object! {
+            "type":"object",
+            "validate":{
+                "children_type":"object",
+                "validate_nested_object":{
+                    "validate_nested_object":{
+                        "validate_nested_object":{
+                            "children_type":"object",
+                            "children_schema":{
+                                "name":{type:"string"}
+                            }
+                        }
+                    }
+                }
+            },
+            "elective":true
         }
 
     };
@@ -187,6 +239,10 @@ fn check() {
             // "run"
         ],
 
+        "foods":[
+            {"paneer":10}
+        ],
+
         "kinky":{
             "akku":{"age":69}
         },
@@ -201,6 +257,52 @@ fn check() {
             "king":[
                 {"review":"good king"}
             ]
+        },
+
+        "deep_object_validate_one":{
+            "deep_one":{
+                "deep_two":{
+                    "deep":"true"
+                },
+                "deep_three":{
+                    "deep":"true"
+                }
+            },
+            "deep_two":{
+                "deep_two":{
+                    "deep":"true"
+                },
+                "deep_three":{
+                    "deep":"true"
+                }
+            }
+        },
+
+        "deep_object_validate_two":{
+            "deep_one":{
+                "deep_two":{
+                    "deep_three":{
+                        "name":"true"
+                    }
+                },
+                "deep_three":{
+                    "deep_three":{
+                        "name":"true"
+                    }
+                }
+            },
+            "deep_two":{
+                "deep_two":{
+                    "deep_three":{
+                        "name":"true"
+                    }
+                },
+                "deep_three":{
+                    "deep_three":{
+                        "name":"true"
+                    }
+                }
+            }
         }
 
     };
@@ -209,7 +311,7 @@ fn check() {
         &format,
         &data,
         "dynamic",
-        11
+        14
     );
 
     println!("run : {:?}",run);

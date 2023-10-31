@@ -453,6 +453,16 @@ fn check_validate(data_type:&str,value:&JsonValue,rule:&JsonValue)->Result<(),Ru
         }
 
         if 
+            children_type == "object" && 
+            rule["validate_nested_object"].is_object()
+        {
+            let schema = &rule["validate_nested_object"];
+            for ao_val in value.members(){
+                validate_nested_object(schema,ao_val,&valid_child_type)?;
+            }
+        }
+
+        if 
             children_type == "string" && 
             rule["unique"].is_boolean() &&
             rule["unique"].as_bool().unwrap()
@@ -481,6 +491,8 @@ fn check_validate(data_type:&str,value:&JsonValue,rule:&JsonValue)->Result<(),Ru
 
     if data_type == "object"{
 
+        // println!("");
+
         if !value.is_object(){
             return Err(RuleError::Format(FormatError::InvalidSchemaOnData));
         }
@@ -501,15 +513,12 @@ fn check_validate(data_type:&str,value:&JsonValue,rule:&JsonValue)->Result<(),Ru
             rule["children_type"].is_string()
         {
             let children_type = rule["children_type"].as_str().unwrap();
-            // let child_data_type = children_type;
             if !valid_child_type.contains(&children_type){
                 return Err(RuleError::Format(FormatError::InvalidChildrenType));
             }
             for (_,value) in value.entries(){
                 let item_data_type = get_json_value_data_type(value)?;
                 if item_data_type != children_type{
-                    println!("children_type : {children_type}");
-                    println!("item_data_type : {item_data_type}");
                     return Err(RuleError::Data(DataError::InvalidChildDataType(
                         children_type.to_string(),
                         item_data_type.to_string(),
@@ -563,12 +572,113 @@ fn check_validate(data_type:&str,value:&JsonValue,rule:&JsonValue)->Result<(),Ru
                 }
             }
         }
+
+        if 
+            rule["children_type"] == "object" && 
+            rule["validate_nested_object"].is_object()
+        {
+            let schema = &rule["validate_nested_object"];
+            validate_nested_object(schema,value,&valid_child_type)?;
+        }
         
         return Ok(());
 
     }
 
     // Err()
+
+    Ok(())
+
+}
+
+fn validate_nested_object(
+    rule:&JsonValue,
+    value:&JsonValue,
+    valid_child_type:&[&str;5]
+)->Result<(),RuleError>{
+
+    if !value.is_object(){
+        return Err(RuleError::Data(DataError::IsNotObject));  
+    }
+
+    if rule["validate_nested_object"].is_object(){
+        // println!("validate_nested_object shallow");
+        let schema = &rule["validate_nested_object"];
+        for (_,o_val) in value.entries(){
+            validate_nested_object(schema,o_val,&valid_child_type)?;
+        }
+        return Ok(());
+    }
+
+    // if !
+
+    // println!("validate_nested_object deep");
+    // println!("{:?}",rule["schema"]);
+    // println!("{:?}",value);
+
+    let schema_type;
+    if rule["dynamic"].is_boolean(){
+        let v = rule["dynamic"].as_bool().unwrap();
+        if v{
+            schema_type = "dynamic";
+        } else {
+            schema_type = "static";
+        }
+    } else {
+        schema_type = "static";
+    }
+
+    let max_size;
+    if rule["maxSize"].is_string(){
+        max_size = rule["maxSize"].as_u32().unwrap();
+    } else {
+        max_size = 0;
+    }
+
+    if rule["schema"].is_object(){
+        let schema = &rule["schema"];
+        match run(schema,value,schema_type,max_size){
+            Ok(_)=>{},
+            Err(e)=>{
+                return Err(RuleError::Sub(Box::new(e)));
+            }
+        }
+    }
+
+    if 
+        rule["children_type"].is_string()
+    {
+        let children_type = rule["children_type"].as_str().unwrap();
+        if !valid_child_type.contains(&children_type){
+            return Err(RuleError::Format(FormatError::InvalidChildrenType));
+        }
+        for (_,o_val) in value.entries(){
+            let item_data_type = get_json_value_data_type(o_val)?;
+            if item_data_type != children_type{
+                return Err(RuleError::Data(DataError::InvalidChildDataType(
+                    children_type.to_string(),
+                    item_data_type.to_string(),
+                )));
+            }
+        }
+    }
+
+    if 
+        rule["children_type"] == "object" &&
+        rule["children_schema"].is_object()
+    {
+        let schema = &rule["children_schema"];
+        for (_,t_val) in value.entries(){
+            match run(schema,t_val,schema_type,max_size){
+                Ok(_)=>{
+                    return Ok(());
+                },
+                Err(e)=>{
+                    return Err(RuleError::Sub(Box::new(e)));
+                }
+            }
+        }
+    }
 
     Ok(())
 
