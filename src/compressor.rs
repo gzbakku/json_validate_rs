@@ -25,11 +25,11 @@ pub fn compress(v:JsonValue)->Result<String,&'static str>{
 
     // println!("c1 : {} c0 : {}",c1.len(),s.len()+1);
 
-    println!("c1 : {} c0 : {} diff : {}",
-        c1.len(),
-        s.len()+1,
-        c1.len() as i64-(s.len() as i64+1)
-    );
+    // println!("c1 : {} c0 : {} diff : {}",
+    //     c1.len(),
+    //     s.len()+1,
+    //     c1.len() as i64-(s.len() as i64+1)
+    // );
 
     if c1.len() < s.len()+1{
         return Ok(c1);
