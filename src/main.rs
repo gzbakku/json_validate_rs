@@ -2,8 +2,9 @@
 
 use json::object;
 
-mod validater;
-mod common;
+pub mod validater;
+pub mod common;
+pub mod compressor; 
 
 // use regex::{Regex,RegexBuilder};
 
@@ -12,7 +13,7 @@ pub use validater::run as validate;
 fn main(){
 
     if false{
-        validater::validate_email("g@l.c");
+        let _ = validater::validate_email("g@l.c");
     }
 
     if true{
@@ -307,6 +308,8 @@ fn check() {
 
     };
 
+    
+
     let run = validate(
         &format,
         &data,
@@ -314,6 +317,29 @@ fn check() {
         14
     );
 
-    println!("run : {:?}",run);
+    println!("validate : {:?}",run);
+
+    let c_big = compressor::compress(data).unwrap();
+
+    println!("c_big : {}",c_big);
+
+    let c_small = compressor::compress(object!{
+        name:"akku",akku:"name",age:"99","99":"age"
+    }).unwrap();
+
+    println!("c_small : {}",c_small);
+
+    println!("c_big decompress : {:?}",compressor::decompress(&c_big).is_ok());
+
+    println!("c_small decompress : {:?}",compressor::decompress(&c_small).is_ok());
+
+    let mut _c_test = object!{};
+    for i in 1..10000{
+        _c_test[i.to_string()] = format!("sa987das987das98d7as987d7d {i}").into();
+    }
+    let c_test = compressor::compress(_c_test).unwrap();
+    println!("c_test decompress : {:?}",compressor::decompress(&c_test).is_ok());
+
+    
 
 }
