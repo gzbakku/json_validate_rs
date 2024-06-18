@@ -40,7 +40,13 @@ pub fn init(v1:&JsonValue,v2:&JsonValue)->bool{
     } else if data_type == "number"{
         if v1 != v2{return false;}
     } else if data_type == "bool"{
-        if v1 != v2{return false;}
+        if v1 == true && v2 == true{
+            return true;
+        } else if v1 == false && v2 == false{
+            return true;
+        } else {
+            return false;
+        }
     } else if data_type == "null"{
         if v1 != v2{return false;}
     } else {
@@ -77,6 +83,15 @@ pub fn get_safe_hash(v:&JsonValue)->String{
     if data_type == "number"{
         let val = v.as_f64().unwrap();
         return hash_md5(&val.to_be_bytes().to_vec());
+    }
+
+    if data_type == "bool"{
+        let val = v.as_bool().unwrap();
+        if val == true{
+            return hash_md5(&"true".as_bytes().to_vec());
+        } else {
+            return hash_md5(&"false".as_bytes().to_vec());
+        }
     }
 
     if data_type == "array"{
