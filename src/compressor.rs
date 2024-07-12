@@ -11,34 +11,21 @@ use base64::{Engine as _, engine::general_purpose};
 pub fn compress(v:JsonValue)->Result<String,&'static str>{
 
     let s = stringify(v);
-
     if s.len() < 5{
         return Ok(format!("0{}",s));
     }
 
+
+    let cm = &z_compress(&s)?;
+    let as_b64 = to_base_64(cm);
+
     let c1 = format!(
-        "1{}",
-        to_base_64(
-            &z_compress(&s)?
-        )
+        "1{}",as_b64
     );
-
-    // println!("c1 : {} c0 : {}",c1.len(),s.len()+1);
-
-    // println!("c1 : {} c0 : {} diff : {}",
-    //     c1.len(),
-    //     s.len()+1,
-    //     c1.len() as i64-(s.len() as i64+1)
-    // );
 
     if c1.len() < s.len()+1{
         return Ok(c1);
     } else {
-        // println!("c1 : {} c0 : {} diff : {}",
-        //     c1.len(),
-        //     s.len()+1,
-        //     c1.len()-(s.len()+1)
-        // );
         return Ok(format!("0{}",s));
     }
 
@@ -53,9 +40,6 @@ pub fn decompress(s:&str)->Result<JsonValue,&'static str>{
     let cc = s.chars().nth(0).unwrap();
     let end = s.len()-1;
     let part = &s[1..=end];
-
-    // println!("cc : {cc}");
-    // println!("decompress : {:?}",s);
 
     if cc == '0'{
         return Ok(to_json(&part)?);
@@ -86,11 +70,28 @@ fn z_decompress(v:&[u8])->Result<String,&'static str>{
     Ok(s)
 }
 
-fn z_compress(v:&str)->Result<Vec<u8>,&'static str>{
-    let mut e = ZlibEncoder::new(Vec::new(), Compression::default());
-    e.write_all(v.as_bytes()).expect("ZlibEncoder-write_all");
-    let compressed_bytes = e.finish().expect("ZlibEncoder-finish");
-    Ok(compressed_bytes)
+fn z_compress(v:&str)->Result<Box<Vec<u8>>,&'static str>{
+    let comp = Compression::best();
+    let writer:Box<Vec<u8>> = Box::new(Vec::new());
+    let mut e = Box::new(
+        ZlibEncoder::new(
+            writer, comp
+        )
+    );
+    match e.write_all(v.as_bytes()){
+        Ok(_)=>{},
+        Err(_e)=>{
+            return Err("ZlibEncoder-write_all");
+        }
+    }
+    match e.finish(){
+        Ok(_c)=>{
+            Ok(_c.clone())
+        },
+        Err(_e)=>{
+            return Err("ZlibEncoder-finish");
+        }
+    }
 }
 
 fn from_base_64(v:&str)->Result<Vec<u8>,&'static str>{
@@ -102,6 +103,9 @@ fn from_base_64(v:&str)->Result<Vec<u8>,&'static str>{
 fn to_base_64(v:&[u8])->String{
     general_purpose::STANDARD_NO_PAD.encode(v)
 }
+
+// use flate2::
+
 
 #[cfg(test)]
 mod tests {
@@ -140,8 +144,6 @@ mod tests {
         };
 
         let s = stringify(build);
-
-        // println!("uncompressed : {:?}",s.len());
 
         let compressed_base64 = format!(
             "2{}",

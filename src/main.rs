@@ -16,9 +16,31 @@ fn main(){
         let _ = validater::validate_email("g@l.c");
     }
 
-    if true{
+    if false{
         check();
     }
+
+    if true{
+        compression_test();
+    }
+
+}
+
+fn compression_test(){
+
+    let map = object!{
+        "vars":{},
+        "blocks":{
+            "386bba5a5dc4fac215c9cf0b9a29b352":{
+                id:"386bba5a5dc4fac215c9cf0b9a29b352",
+                actions:{}
+            },
+        }
+    };
+
+    let cc = compressor::compress(map).unwrap();
+
+    println!("cc : {cc}");
 
 }
 
