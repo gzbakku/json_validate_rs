@@ -296,6 +296,11 @@ fn check_option_required_fields(value:&JsonValue,rule:&JsonValue,all_values:&Jso
 
 fn check_options(_data_type:&str,value:&JsonValue,rule:&JsonValue)->Result<(),RuleError>{
 
+    // println!("check_options => {:?} => {:?} => {:?}",_data_type,value,rule);
+
+    // value.print();
+    // rule.print();
+
     if
         !value.is_string() && 
         !value.is_number() &&
@@ -308,56 +313,87 @@ fn check_options(_data_type:&str,value:&JsonValue,rule:&JsonValue)->Result<(),Ru
         return Err(RuleError::Format(FormatError::InvalidOptions));
     }
 
-    let mut set = HashSet::new();
-    for item in rule.members(){
-        if item.is_string(){
-            set.insert(item.as_str().unwrap());
-        }
-    }
+    // let mut set = HashSet::new();
+    // for item in rule.members(){
+    //     if item.is_string(){
+    //         set.insert(item.as_str().unwrap());
+    //     }
+    // }
 
     if value.is_array(){
         for item in value.members(){
-            let v:Option<String>;
             if item.is_string(){
                 let s = item.as_str().unwrap();
-                v = Some(s.to_string());
-            } else if item.is_number(){
-                let i = item.as_i64().unwrap();
-                let j = i.clone().to_string();
-                v = Some(j.to_string());
-            } else {
-                v = None; 
+                if rule.contains(s){
+                    // return Err(RuleError::Data(DataError::OutOfOptions));
+                    return Ok(());
+                }
+            } 
+            else if item.as_i64().is_some(){
+                let v: String = item.as_i64().unwrap().to_string();
+                if rule.contains(v.as_str()){
+                    // return Err(RuleError::Data(DataError::OutOfOptions));
+                    return Ok(());
+                }
             }
-            match v{
-                Some(c)=>{
-                    if !set.contains(c.as_str()){
-                        return Err(RuleError::Data(DataError::OutOfOptions));
-                    }
-                },
-                None=>{}
+            else if item.as_u64().is_some(){
+                let v: String = item.as_u64().unwrap().to_string();
+                if rule.contains(v.as_str()){
+                    // return Err(RuleError::Data(DataError::OutOfOptions));
+                    return Ok(());
+                }
             }
         }
+        // return Err(RuleError::Data(DataError::OutOfOptions));
     }
 
     if value.is_string(){
         let v = value.as_str().unwrap();
-        if !set.contains(v){
-            return Err(RuleError::Data(DataError::OutOfOptions));
+        if rule.contains(v){
+            // return Err(RuleError::Data(DataError::OutOfOptions));
+            return Ok(());
         }
+        // if !set.contains(v){
+        //     return Err(RuleError::Data(DataError::OutOfOptions));
+        // }
+        // return Err(RuleError::Data(DataError::OutOfOptions));
     }
 
     if value.is_number(){
-        let v = value.as_i64().unwrap();
-        let n = &v.to_string();
-        let p = n.as_str();
-        if !set.contains(p){
-            return Err(RuleError::Data(DataError::OutOfOptions));
+        if value.as_i64().is_some(){
+            let v: String = value.as_i64().unwrap().to_string();
+            if rule.contains(v.as_str()){
+                // return Err(RuleError::Data(DataError::OutOfOptions));
+                return Ok(());
+            }
         }
+        else if value.as_u64().is_some(){
+            let v: String = value.as_u64().unwrap().to_string();
+            if rule.contains(v.as_str()){
+                // return Err(RuleError::Data(DataError::OutOfOptions));
+                return Ok(());
+            }
+        } 
+        else if value.as_f64().is_some(){
+            let v: String = value.as_f64().unwrap().to_string();
+            if rule.contains(v.as_str()){
+                // return Err(RuleError::Data(DataError::OutOfOptions));
+                return Ok(());
+            }
+        }
+        // let v = value.as_i64().unwrap();
+        // let n = &v.to_string();
+        // let p = n.as_str();
+        // if !set.contains(p){
+        //     return Err(RuleError::Data(DataError::OutOfOptions));
+        // }
     }
 
-    return Ok(());
+    // return Ok(());
 
     // return Err(RuleError::None);
+
+    return Err(RuleError::Data(DataError::OutOfOptions));
 
 }
 
@@ -533,14 +569,13 @@ fn check_validate(data_type:&str,value:&JsonValue,rule:&JsonValue)->Result<(),Ru
             let schema = &rule["children_schema"];
             for (_,t_val) in value.entries(){
                 match run(schema,t_val,schema_type,max_size){
-                    Ok(_)=>{
-                        return Ok(());
-                    },
+                    Ok(_)=>{},
                     Err(e)=>{
                         return Err(RuleError::Sub(Box::new(e)));
                     }
                 }
             }
+            // return Ok(());
         }
 
         if 
@@ -629,7 +664,7 @@ fn validate_nested_object(
     }
 
     let max_size;
-    if rule["maxSize"].is_string(){
+    if rule["maxSize"].as_u32().is_some(){
         max_size = rule["maxSize"].as_u32().unwrap();
     } else {
         max_size = 0;
