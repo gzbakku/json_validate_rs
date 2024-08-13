@@ -16,11 +16,11 @@ fn main(){
         let _ = validater::validate_email("g@l.c");
     }
 
-    if false{
+    if true{
         check();
     }
 
-    if true{
+    if false{
         compression_test();
     }
 
@@ -133,7 +133,11 @@ fn check() {
             "validate":{
                 "children_type":"string",
                 //check each string value of array is unique
-                "unique":true
+                "unique":true,
+                //checks min string len
+                "min_string":3,
+                //checks max string len
+                "max_string":10
             },
             "elective":true
         },
@@ -146,6 +150,11 @@ fn check() {
                 "children_type":"object",
                 //nested object validation
                 "validate_nested_object":{
+                    //checks min key len
+                    "min_key_size":1,
+                    //checks min key len
+                    "max_key_size":10,
+                    //checks child data type
                     "children_type":"number"
                 }
             },

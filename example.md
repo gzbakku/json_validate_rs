@@ -89,7 +89,11 @@ fn check() {
             "validate":{
                 "children_type":"string",
                 //check each string value of array is unique
-                "unique":true
+                "unique":true,
+                //checks min string len
+                "min_string":1,
+                //checks max string len
+                "max_string":100
             },
             "elective":true
         },

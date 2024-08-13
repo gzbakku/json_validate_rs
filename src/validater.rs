@@ -12,7 +12,8 @@ pub enum FormatError{
     InvalidOptions,OptionsNotAllowed,
     IsNotObject,IsNotStringArray,
     ChildrenTypeMissing,InvalidChildrenType,
-    InvalidArrayUniqueKeyType
+    InvalidArrayUniqueKeyType,InvalidMinMaxValues,
+    InvalidMinKeySize,InvalidMaxKeySize
 }
 
 #[derive(Debug)]
@@ -27,7 +28,8 @@ pub enum DataError{
     MissingRequiredField(String),
     ArrayUniqueKeyNotFound(String),ArrayUniqueKeyNotStringType(String),
     ArrayUniqueKeyDuplicate(String,String),DuplicateArrayString(String),
-    ArrayUniqueValueNotString,InvalidChildDataType(String,String)
+    ArrayUniqueValueNotString,InvalidChildDataType(String,String),
+    MinString,MaxString,MaxKeySize,MinKeySize
 }
 
 pub fn validate_email(email:&str)->Result<(),RuleError>{
@@ -521,6 +523,48 @@ fn check_validate(data_type:&str,value:&JsonValue,rule:&JsonValue)->Result<(),Ru
             }
         }
 
+        if 
+            children_type == "string" && 
+            rule["max_string"].is_number() || 
+            rule["min_string"].is_number() 
+        {
+            let max = rule["max_string"].as_u64();
+            let min = rule["min_string"].as_u64();
+            if 
+                max.is_some() ||
+                min.is_some()
+            {
+                for item in value.members(){
+                    if !item.is_string(){
+                        return Err(RuleError::Data(
+                            DataError::ArrayUniqueValueNotString
+                        ));
+                    }
+                    let len = item.as_str().unwrap().len() as u64;
+                    if min.is_some(){
+                        let min = min.as_ref().unwrap();
+                        if len < *min{
+                            return Err(RuleError::Data(
+                                DataError::MinString
+                            ));
+                        }
+                    }
+                    if max.is_some(){
+                        let max = max.as_ref().unwrap();
+                        if len > *max{
+                            return Err(RuleError::Data(
+                                DataError::MaxString
+                            ));
+                        }
+                    }
+                }
+            } else {
+                return Err(RuleError::Format(
+                    FormatError::InvalidMinMaxValues
+                ));
+            }
+        }
+
         return Ok(());
 
     }
@@ -634,6 +678,34 @@ fn validate_nested_object(
 
     if !value.is_object(){
         return Err(RuleError::Data(DataError::IsNotObject));  
+    }
+
+    if rule["max_key_size"].is_number(){
+        let max = rule["max_key_size"].as_u64();
+        if max.is_none(){
+            return Err(RuleError::Format(FormatError::InvalidMaxKeySize));  
+        }
+        let max = max.unwrap();
+        for (key,_) in value.entries(){
+            let len = key.len() as u64;
+            if len > max{
+                return Err(RuleError::Data(DataError::MaxKeySize));  
+            }
+        }
+    }
+
+    if rule["min_key_size"].is_number(){
+        let min = rule["min_key_size"].as_u64();
+        if min.is_none(){
+            return Err(RuleError::Format(FormatError::InvalidMinKeySize));  
+        }
+        let min = min.unwrap();
+        for (key,_) in value.entries(){
+            let len = key.len() as u64;
+            if len < min{
+                return Err(RuleError::Data(DataError::MinKeySize));  
+            }
+        }
     }
 
     if rule["validate_nested_object"].is_object(){
