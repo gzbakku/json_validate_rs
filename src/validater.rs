@@ -653,7 +653,7 @@ fn check_validate(data_type:&str,value:&JsonValue,rule:&JsonValue)->Result<(),Ru
         }
 
         if 
-            rule["children_type"] == "object" && 
+            // rule["children_type"] == "object" && 
             rule["validate_nested_object"].is_object()
         {
             let schema = &rule["validate_nested_object"];
