@@ -845,6 +845,23 @@ fn check_validate(
             return Err(RuleError::Format(FormatError::InvalidSchemaOnData));
         }
 
+        if rule["min_key_size"].as_usize().is_some(){
+            let min_key_size = rule["min_key_size"].as_usize().unwrap();
+            for (key,_) in value.entries(){
+                if key.len() < min_key_size{
+                    return Err(RuleError::Data(DataError::MinKeySize));
+                }
+            }
+        }
+        if rule["max_key_size"].as_usize().is_some(){
+            let max_key_size = rule["max_key_size"].as_usize().unwrap();
+            for (key,_) in value.entries(){
+                if key.len() > max_key_size{
+                    return Err(RuleError::Data(DataError::MaxKeySize));
+                }
+            }
+        }
+
         //----------------------------
         //check schema if defined
         //----------------------------

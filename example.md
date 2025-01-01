@@ -1,6 +1,5 @@
 ```rust
 
-
 fn check() {
 
     let format = object! {
@@ -38,6 +37,9 @@ fn check() {
             school:{type:"object",min:1,max:10,validate:{
                 //only these keys will be allowed in a object
                 valid_keys:["one","two","three"],
+                //min max key size check for key inputs by user
+                min_key_size:1,
+                max_key_size:32,
                 children_schema:{
                     class:"class"
                 }
@@ -382,7 +384,6 @@ fn check() {
     );
 
     println!("validate : {:?}",run);
-
 
 }
 
