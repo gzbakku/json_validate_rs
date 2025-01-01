@@ -13,7 +13,8 @@ pub enum FormatError{
     IsNotObject,IsNotStringArray,
     ChildrenTypeMissing,InvalidChildrenType,
     InvalidArrayUniqueKeyType,InvalidMinMaxValues,
-    InvalidMinKeySize,InvalidMaxKeySize
+    InvalidMinKeySize,InvalidMaxKeySize,StringRuleNotDefined(String),InvalidChildrenSchema,StringRulesMissing(String),ValidKeyNotString,InvalidValidateRuleAction(String),
+    IncludeIsNotString,ExcludeIsNotString,ElseIsNotString
 }
 
 #[derive(Debug)]
@@ -29,7 +30,9 @@ pub enum DataError{
     ArrayUniqueKeyNotFound(String),ArrayUniqueKeyNotStringType(String),
     ArrayUniqueKeyDuplicate(String,String),DuplicateArrayString(String),
     ArrayUniqueValueNotString,InvalidChildDataType(String,String),
-    MinString,MaxString,MaxKeySize,MinKeySize
+    MinString,MaxString,MaxKeySize,MinKeySize,MissingIncludeKey((String,String)),
+    PresentExcludeKey((String,String)),MissingAllIncludeKey(String),
+    ElseKeyMissing(String)
 }
 
 pub fn validate_email(email:&str)->Result<(),RuleError>{
@@ -70,7 +73,27 @@ pub fn run(
     format:&JsonValue,
     data:&JsonValue,
     schema_type:&str,
-    max_size:u32
+    max_size:u32,
+)->Result<(),Error>{
+    let mut definitions = None;
+    if format["$_DEFINE_$"].is_object(){
+        definitions = Some(&format["$_DEFINE_$"]);
+    }
+    run_with_definitions(
+        format,data,schema_type,max_size,&definitions
+    )
+}
+
+#[doc = include_str!("../example.md")]
+///schema type can be
+///dynamic validation allows undefined fields
+///static validation only allows defined fields
+pub fn run_with_definitions(
+    format:&JsonValue,
+    data:&JsonValue,
+    schema_type:&str,
+    max_size:u32,
+    definitions:&Option<&JsonValue>
 )->Result<(),Error>{
 
     if !format.is_object(){
@@ -92,34 +115,150 @@ pub fn run(
         // }
     }
 
-    for (key,rules) in format.entries(){
+    // let mut define = HashMap::new();
+    // let mut define = None;
+    // if format["$_DEFINE_$"].is_object(){
+    //     define = Some(&format["_DEFINE_"]);
+    // }
 
-        if !data.has_key(key){
-            if rules.has_key("elective"){
-                if rules["elective"].is_boolean(){
-                    let elective = rules["elective"].as_bool().unwrap();
-                    if !elective{
+    for (key,_rules) in format.entries(){
+
+        let define_key;
+        if key == "$_DEFINE_$"{
+            define_key = true;
+        } else {
+            define_key = false;
+        }
+
+        let rules;
+        if _rules.is_object(){
+            rules = _rules;
+        } 
+        else if _rules.is_string(){
+            // println!("string_rule : {:?}",_rules);
+            let rule = _rules.as_str().unwrap();
+            if definitions.is_some(){
+                let vv = definitions.as_ref().unwrap();
+                if vv[rule].is_object(){
+                    rules = &vv[rule];
+                    // println!("string_rule : {:?} FOUND",_rules);
+                    // println!("{:?}",rules);
+                } else {
+                    return Err(RuleError::Format(FormatError::StringRuleNotDefined(rule.to_string())).into());
+                }
+            } else {
+                return Err(RuleError::Format(FormatError::StringRulesMissing(rule.to_string())).into());
+            }
+        }
+        else {
+            return Err(RuleError::Format(FormatError::InvalidSchema).into()); 
+        }
+
+        if !define_key{
+
+            
+            if !data.has_key(key){
+                if rules.has_key("elective"){
+                    if rules["elective"].is_boolean(){
+                        let elective = rules["elective"].as_bool().unwrap();
+                        if !elective{
+                            return Err(RuleError::Data(DataError::NotFound(key.to_string())).into());
+                        }
+                    } else {
                         return Err(RuleError::Data(DataError::NotFound(key.to_string())).into());
                     }
                 } else {
                     return Err(RuleError::Data(DataError::NotFound(key.to_string())).into());
                 }
-            } else {
-                return Err(RuleError::Data(DataError::NotFound(key.to_string())).into());
             }
-        }
-
-        if data.has_key(key){
-            let value = &data[key];
-            match check_field(
-                key, value, rules, &is_dynamic, &data
-            ){
-                Ok(_)=>{},
-                Err(e)=>{
-                    return Err(Error::Key(key.to_string(), e));
+    
+            if data.has_key(key){
+                let value = &data[key];
+                match check_field(
+                    key, value, rules, &is_dynamic, &data,&definitions
+                ){
+                    Ok(_)=>{},
+                    Err(e)=>{
+                        return Err(Error::Key(key.to_string(), e));
+                    }
                 }
             }
+
+            //ElseIsNotString ElseKeyMissing
+
+            if 
+                !data.has_key(key) &&
+                rules["else"].is_array()
+            {
+                for else_key in rules["else"].members(){
+                    if !else_key.is_string(){
+                        return Err(RuleError::Format(FormatError::ElseIsNotString).into()); 
+                    }
+                    let else_key = else_key.as_str().unwrap();
+                    if !data.has_key(else_key){
+                        return Err(RuleError::Data(DataError::ElseKeyMissing(
+                            else_key.to_string()
+                        )).into()); 
+                    }
+                }
+            }
+
+            if 
+                data.has_key(key) &&
+                rules["exclude"].is_array()
+            {
+                for exclude_key in rules["exclude"].members(){
+                    if !exclude_key.is_string(){
+                        return Err(RuleError::Format(FormatError::ExcludeIsNotString).into()); 
+                    }
+                    let exclude_key = exclude_key.as_str().unwrap();
+                    if data.has_key(exclude_key){
+                        return Err(RuleError::Data(DataError::PresentExcludeKey(
+                            (key.to_string(),exclude_key.to_string())
+                        )).into()); 
+                    }
+                }
+            }
+
+            if 
+                data.has_key(key) &&
+                rules["include"].is_array()
+            {
+                for include_key in rules["include"].members(){
+                    if !include_key.is_string(){
+                        return Err(RuleError::Format(FormatError::IncludeIsNotString).into()); 
+                    }
+                    let include_key = include_key.as_str().unwrap();
+                    if !data.has_key(include_key){
+                        return Err(RuleError::Data(DataError::MissingIncludeKey(
+                            (key.to_string(),include_key.to_string())
+                        )).into()); 
+                    }
+                }
+            }
+
+            if 
+                data.has_key(key) &&
+                rules["include_any"].is_array()
+            {
+                let mut found = false;
+                for include_key in rules["include_any"].members(){
+                    if !include_key.is_string(){
+                        return Err(RuleError::Format(FormatError::IncludeIsNotString).into()); 
+                    }
+                    let include_key = include_key.as_str().unwrap();
+                    if data.has_key(include_key){
+                        found = true;
+                    }
+                }
+                if !found{
+                    return Err(RuleError::Data(DataError::MissingAllIncludeKey(key.to_string())).into()); 
+                }
+            }
+
         }
+
+        
 
     }
 
@@ -138,7 +277,8 @@ pub fn run(
 fn check_field(
     _key:&str,value:&JsonValue,
     rules:&JsonValue,_is_dynamic:&bool,
-    all_values:&JsonValue
+    all_values:&JsonValue,
+    definitions:&Option<&JsonValue>
 )->Result<(),RuleError>{
 
     if !rules.is_object(){
@@ -213,7 +353,12 @@ fn check_field(
     }
 
     if rules.has_key("validate"){
-        match check_validate(&data_type,&value,&rules["validate"]){
+        match check_validate(
+            &data_type,
+            &value,
+            &rules["validate"],
+            definitions
+        ){
             Ok(_)=>{},
             Err(e)=>{
                 return Err(e);
@@ -399,7 +544,12 @@ fn check_options(_data_type:&str,value:&JsonValue,rule:&JsonValue)->Result<(),Ru
 
 }
 
-fn check_validate(data_type:&str,value:&JsonValue,rule:&JsonValue)->Result<(),RuleError>{
+fn check_validate(
+    data_type:&str,
+    value:&JsonValue,
+    rule:&JsonValue,
+    definitions:&Option<&JsonValue>
+)->Result<(),RuleError>{
 
     let schema_type;
     if rule["dynamic"].is_boolean(){
@@ -418,6 +568,21 @@ fn check_validate(data_type:&str,value:&JsonValue,rule:&JsonValue)->Result<(),Ru
         max_size = rule["maxSize"].as_u32().unwrap();
     } else {
         max_size = 0;
+    }
+
+    let valid_validate_keys = vec![
+        "schema","maxSize","dynamic","static",
+        "children_schema","valid_keys","children_type",
+        "array_validate","array_child_type",
+        "validate_nested_object","unique_keys",
+        "min_string","max_string","min_key_size","max_key_size",
+        "unique","max_size"
+    ];
+
+    for (key,_) in rule.entries(){
+        if !valid_validate_keys.contains(&key){
+            return Err(RuleError::Format(FormatError::InvalidValidateRuleAction(key.to_string())));
+        }
     }
 
     let valid_child_type = ["bool","string","number","array","object"];
@@ -443,14 +608,92 @@ fn check_validate(data_type:&str,value:&JsonValue,rule:&JsonValue)->Result<(),Ru
             if item_data_type != child_data_type{
                 return Err(RuleError::Data(DataError::InvalidDataType));
             }
-            if child_data_type == "object" && rule["children_schema"].is_object(){
+        }
+
+        if child_data_type == "object"{
+            if rule["children_schema"].is_object(){
                 let schema = &rule["children_schema"];
-                match run(schema,item,schema_type,max_size){
-                    Ok(_)=>{},
-                    Err(e)=>{
-                        return Err(RuleError::Sub(Box::new(e)));
+                for item in value.members(){
+                    match run_with_definitions(
+                        schema,item,schema_type,max_size,definitions
+                    ){
+                        Ok(_)=>{},
+                        Err(e)=>{
+                            return Err(RuleError::Sub(Box::new(e)));
+                        }
                     }
                 }
+            } 
+            else if rule["children_schema"].is_string(){
+                let schema;
+                let name = rule["children_schema"].as_str().unwrap();
+                // println!("children_schema : {:?}",definitions);
+                if definitions.is_some(){
+                    let define = definitions.as_ref().unwrap();
+                    if define[name].is_object(){
+                        schema = &define[name];
+                    } else {
+                        return Err(RuleError::Format(FormatError::StringRuleNotDefined(name.to_string())));
+                    }
+                } else {
+                    return Err(RuleError::Format(FormatError::StringRulesMissing(name.to_string())));
+                }
+                for item in value.members(){
+                    match run_with_definitions(
+                        schema,item,schema_type,max_size,definitions
+                    ){
+                        Ok(_)=>{},
+                        Err(e)=>{
+                            return Err(RuleError::Sub(Box::new(e)));
+                        }
+                    }
+                }
+            }
+            else if rule.has_key("children_schema"){
+                return Err(RuleError::Format(FormatError::InvalidChildrenSchema));
+            }
+        }
+
+        if child_data_type == "object"{
+            if rule["schema"].is_object(){
+                let schema = &rule["schema"];
+                for item in value.members(){
+                    match run_with_definitions(
+                        schema,item,schema_type,max_size,definitions
+                    ){
+                        Ok(_)=>{},
+                        Err(e)=>{
+                            return Err(RuleError::Sub(Box::new(e)));
+                        }
+                    }
+                }
+            } 
+            else if rule["schema"].is_string(){
+                let schema;
+                let name = rule["schema"].as_str().unwrap();
+                if definitions.is_some(){
+                    let define = definitions.as_ref().unwrap();
+                    if define[name].is_object(){
+                        schema = &define[name];
+                    } else {
+                        return Err(RuleError::Format(FormatError::StringRuleNotDefined(name.to_string())));
+                    }
+                } else {
+                    return Err(RuleError::Format(FormatError::StringRulesMissing(name.to_string())));
+                }
+                for item in value.members(){
+                    match run_with_definitions(
+                        schema,item,schema_type,max_size,definitions
+                    ){
+                        Ok(_)=>{},
+                        Err(e)=>{
+                            return Err(RuleError::Sub(Box::new(e)));
+                        }
+                    }
+                }
+            }
+            else if rule.has_key("schema"){
+                return Err(RuleError::Format(FormatError::InvalidSchema));
             }
         }
 
@@ -496,7 +739,9 @@ fn check_validate(data_type:&str,value:&JsonValue,rule:&JsonValue)->Result<(),Ru
         {
             let schema = &rule["validate_nested_object"];
             for ao_val in value.members(){
-                validate_nested_object(schema,ao_val,&valid_child_type)?;
+                validate_nested_object(
+                    schema,ao_val,&valid_child_type,definitions
+                )?;
             }
         }
 
@@ -576,10 +821,16 @@ fn check_validate(data_type:&str,value:&JsonValue,rule:&JsonValue)->Result<(),Ru
         if !value.is_object(){
             return Err(RuleError::Format(FormatError::InvalidSchemaOnData));
         }
+
+        //----------------------------
+        //check schema if defined
+        //----------------------------
     
         if rule["schema"].is_object(){
             let schema = &rule["schema"];
-            match run(schema,value,schema_type,max_size){
+            match run_with_definitions(
+                schema,value,schema_type,max_size,definitions
+            ){
                 Ok(_)=>{
                     return Ok(());
                 },
@@ -588,7 +839,111 @@ fn check_validate(data_type:&str,value:&JsonValue,rule:&JsonValue)->Result<(),Ru
                 }
             }
         }
-    
+
+        else if rule["schema"].is_string(){
+            let schema;
+            let name = rule["schema"].as_str().unwrap();
+            if definitions.is_some(){
+                let define = definitions.as_ref().unwrap();
+                if define[name].is_object(){
+                    schema = &define[name];
+                } else {
+                    return Err(RuleError::Format(FormatError::StringRuleNotDefined(name.to_string())));
+                }
+            } else {
+                return Err(RuleError::Format(FormatError::StringRulesMissing(name.to_string())));
+            }
+            match run_with_definitions(
+                schema,value,schema_type,max_size,definitions
+            ){
+                Ok(_)=>{
+                    return Ok(());
+                },
+                Err(e)=>{
+                    return Err(RuleError::Sub(Box::new(e)));
+                }
+            }
+        }
+
+        else if rule.has_key("schema"){
+            return Err(RuleError::Format(FormatError::InvalidSchema));
+        }
+
+        //----------------------------
+        //check children schema
+        //----------------------------
+
+        if 
+            rule["children_schema"].is_object()
+        {
+            let schema = &rule["children_schema"];
+            for (_,t_val) in value.entries(){
+                match run_with_definitions(
+                    schema,t_val,schema_type,max_size,definitions
+                ){
+                    Ok(_)=>{},
+                    Err(e)=>{
+                        return Err(RuleError::Sub(Box::new(e)));
+                    }
+                }
+            }
+        }
+
+        else if 
+            rule["children_schema"].is_string()
+        {
+            let schema;
+            let name = rule["children_schema"].as_str().unwrap();
+            if definitions.is_some(){
+                let define = definitions.as_ref().unwrap();
+                if define[name].is_object(){
+                    schema = &define[name];
+                } else {
+                    return Err(RuleError::Format(FormatError::StringRuleNotDefined(name.to_string())));
+                }
+            } else {
+                return Err(RuleError::Format(FormatError::StringRulesMissing(name.to_string())));
+            }
+            for (_,t_val) in value.entries(){
+                match run_with_definitions(
+                    schema,t_val,schema_type,max_size,definitions
+                ){
+                    Ok(_)=>{},
+                    Err(e)=>{
+                        return Err(RuleError::Sub(Box::new(e)));
+                    }
+                }
+            }
+        }
+
+        else if rule.has_key("children_schema"){
+            return Err(RuleError::Format(FormatError::InvalidChildrenSchema));
+        }
+
+        //----------------------------
+        //check keys in options
+        //----------------------------
+
+        if 
+            rule["valid_keys"].is_array()
+        {
+            for valid_key in rule["valid_keys"].members(){
+                if !valid_key.is_string(){
+                    return Err(RuleError::Format(FormatError::ValidKeyNotString));
+                }
+            }
+            let valid_keys = &rule["valid_keys"];
+            for (key,_) in value.entries(){
+                if !valid_keys.contains(key){
+                    return Err(RuleError::Data(DataError::UnmatchedKey(key.to_string())));
+                }
+            }
+        }
+
+        //----------------------------
+        //check children_type
+        //----------------------------
+
         if 
             rule["children_type"].is_string()
         {
@@ -607,20 +962,9 @@ fn check_validate(data_type:&str,value:&JsonValue,rule:&JsonValue)->Result<(),Ru
             }
         }
 
-        if 
-            rule["children_schema"].is_object()
-        {
-            let schema = &rule["children_schema"];
-            for (_,t_val) in value.entries(){
-                match run(schema,t_val,schema_type,max_size){
-                    Ok(_)=>{},
-                    Err(e)=>{
-                        return Err(RuleError::Sub(Box::new(e)));
-                    }
-                }
-            }
-            // return Ok(());
-        }
+        //----------------------------
+        //check array_validate
+        //----------------------------
 
         if 
             rule["children_type"] == "array" && 
@@ -644,7 +988,8 @@ fn check_validate(data_type:&str,value:&JsonValue,rule:&JsonValue)->Result<(),Ru
                         {
                             validate_array_children_schema(
                                 &array_validate["validate"],
-                                array_value
+                                array_value,
+                                definitions
                             )?;
                         }
                     }
@@ -652,12 +997,17 @@ fn check_validate(data_type:&str,value:&JsonValue,rule:&JsonValue)->Result<(),Ru
             }
         }
 
+        //----------------------------
+        //check validate_nested_object
+        //----------------------------
+
         if 
-            // rule["children_type"] == "object" && 
             rule["validate_nested_object"].is_object()
         {
             let schema = &rule["validate_nested_object"];
-            validate_nested_object(schema,value,&valid_child_type)?;
+            validate_nested_object(
+                schema,value,&valid_child_type,definitions
+            )?;
         }
         
         return Ok(());
@@ -673,7 +1023,8 @@ fn check_validate(data_type:&str,value:&JsonValue,rule:&JsonValue)->Result<(),Ru
 fn validate_nested_object(
     rule:&JsonValue,
     value:&JsonValue,
-    valid_child_type:&[&str;5]
+    valid_child_type:&[&str;5],
+    definitions:&Option<&JsonValue>
 )->Result<(),RuleError>{
 
     if !value.is_object(){
@@ -712,7 +1063,9 @@ fn validate_nested_object(
         // println!("validate_nested_object shallow");
         let schema = &rule["validate_nested_object"];
         for (_,o_val) in value.entries(){
-            validate_nested_object(schema,o_val,&valid_child_type)?;
+            validate_nested_object(
+                schema,o_val,&valid_child_type,definitions
+            )?;
         }
         return Ok(());
     }
@@ -744,12 +1097,41 @@ fn validate_nested_object(
 
     if rule["schema"].is_object(){
         let schema = &rule["schema"];
-        match run(schema,value,schema_type,max_size){
+        match run_with_definitions(
+            schema,value,schema_type,max_size,definitions
+        ){
             Ok(_)=>{},
             Err(e)=>{
                 return Err(RuleError::Sub(Box::new(e)));
             }
         }
+    }
+
+    else if rule["schema"].is_string(){
+        let schema;
+        let name = rule["schema"].as_str().unwrap();
+        if definitions.is_some(){
+            let define = definitions.as_ref().unwrap();
+            if define[name].is_object(){
+                schema = &define[name];
+            } else {
+                return Err(RuleError::Format(FormatError::StringRuleNotDefined(name.to_string())));
+            }
+        } else {
+            return Err(RuleError::Format(FormatError::StringRulesMissing(name.to_string())));
+        }
+        match run_with_definitions(
+            schema,value,schema_type,max_size,definitions
+        ){
+            Ok(_)=>{},
+            Err(e)=>{
+                return Err(RuleError::Sub(Box::new(e)));
+            }
+        }
+    }
+
+    else if rule.has_key("schema"){
+        return Err(RuleError::Format(FormatError::InvalidSchema));
     }
 
     if 
@@ -770,21 +1152,55 @@ fn validate_nested_object(
         }
     }
 
-    if 
-        rule["children_type"] == "object" &&
-        rule["children_schema"].is_object()
-    {
-        let schema = &rule["children_schema"];
-        for (_,t_val) in value.entries(){
-            match run(schema,t_val,schema_type,max_size){
-                Ok(_)=>{
-                    return Ok(());
-                },
-                Err(e)=>{
-                    return Err(RuleError::Sub(Box::new(e)));
+    if rule["children_type"] == "object"{
+
+        if rule["children_schema"].is_object(){
+            let schema = &rule["children_schema"];
+            for (_,t_val) in value.entries(){
+                match run_with_definitions(
+                    schema,t_val,schema_type,max_size,definitions
+                ){
+                    Ok(_)=>{
+                        return Ok(());
+                    },
+                    Err(e)=>{
+                        return Err(RuleError::Sub(Box::new(e)));
+                    }
                 }
             }
         }
+
+        else if rule["children_schema"].is_string(){
+            let schema;
+            let name = rule["children_schema"].as_str().unwrap();
+            if definitions.is_some(){
+                let define = definitions.as_ref().unwrap();
+                if define[name].is_object(){
+                    schema = &define[name];
+                } else {
+                    return Err(RuleError::Format(FormatError::StringRuleNotDefined(name.to_string())));
+                }
+            } else {
+                return Err(RuleError::Format(FormatError::StringRulesMissing(name.to_string())));
+            }
+            for (_,t_val) in value.entries(){
+                match run_with_definitions(
+                    schema,t_val,schema_type,max_size,definitions
+                ){
+                    Ok(_)=>{
+                        return Ok(());
+                    },
+                    Err(e)=>{
+                        return Err(RuleError::Sub(Box::new(e)));
+                    }
+                }
+            }
+        }
+
+        else if rule.has_key("children_schema"){
+            return Err(RuleError::Format(FormatError::InvalidChildrenSchema));
+        }
+
     }
 
     Ok(())
@@ -793,12 +1209,9 @@ fn validate_nested_object(
 
 fn validate_array_children_schema(
     rule:&JsonValue,
-    value:&JsonValue
+    value:&JsonValue,
+    definitions:&Option<&JsonValue>
 )->Result<(),RuleError>{
-
-    if !rule["schema"].is_object(){
-        return Err(RuleError::Format(FormatError::InvalidSchema)); 
-    }
 
     let schema_type;
     if rule["dynamic"].is_boolean(){
@@ -819,14 +1232,45 @@ fn validate_array_children_schema(
         max_size = 0;
     }
 
-    let schema = &rule["schema"];
-    match run(schema,value,schema_type,max_size){
-        Ok(_)=>{},
-        Err(e)=>{
-            return Err(RuleError::Sub(Box::new(e)));
+    if rule["schema"].is_object(){
+        let schema = &rule["schema"];
+        match run_with_definitions(
+            schema,value,schema_type,max_size,definitions
+        ){
+            Ok(_)=>{},
+            Err(e)=>{
+                return Err(RuleError::Sub(Box::new(e)));
+            }
         }
     }
 
+    else if rule["schema"].is_string(){
+        let schema;
+        let name = rule["schema"].as_str().unwrap();
+        if definitions.is_some(){
+            let define = definitions.as_ref().unwrap();
+            if define[name].is_object(){
+                schema = &define[name];
+            } else {
+                return Err(RuleError::Format(FormatError::StringRuleNotDefined(name.to_string())));
+            }
+        } else {
+            return Err(RuleError::Format(FormatError::StringRulesMissing(name.to_string())));
+        }
+        match run_with_definitions(
+            schema,value,schema_type,max_size,definitions
+        ){
+            Ok(_)=>{},
+            Err(e)=>{
+                return Err(RuleError::Sub(Box::new(e)));
+            }
+        }
+    }
+
+    else if rule.has_key("schema"){
+        return Err(RuleError::Format(FormatError::InvalidSchema));
+    }
+    
     Ok(())
 
 }

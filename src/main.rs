@@ -58,6 +58,50 @@ fn check() {
         //dynamic validation allows undefined fields
         //static validation only allows defined fields
 
+        //definitions
+        //these definitions can be used in place of key rules,children_schema and schema objects
+        "$_DEFINE_$":{
+            name:{type:"string",min:1,max:100,options:["akku"]},
+            age:{type:"number",min:1,max:100},
+            new:{type:"bool"},
+            person_schema:{
+                name:"name",
+                age:"age",
+                new:"new"
+            },
+            group:{type:"array",min:1,max:10,validate:{
+                children_type:"object",
+                children_schema:"person_schema"
+            }},
+            class:{type:"object",min:1,max:1,validate:{
+                schema:{
+                    group:"group"
+                }
+            }},
+            school:{type:"object",min:1,max:10,validate:{
+                //only these keys will be allowed in a object
+                valid_keys:["one","two","three"],
+                children_schema:{
+                    class:"class"
+                }
+            }},
+        },
+
+        "class":"class",
+
+        "school":"school",
+
+        //include exclude and include_any keys 
+        //these will check fellow keys in object if self is present
+        //include any will trigger if all keys are missing
+        "engine":{type:"bool","include_any":["plane","car"],"else":["maggie"],"elective":true},
+        "plane":{type:"bool","include":["pilot","engine"],"exclude":["car"],"elective":true},
+        "car":{type:"bool","include":["driver","engine"],"exclude":["pilot"],"elective":true},
+        "pilot":{type:"bool","include":["plane"],"exclude":["car"],"elective":true},
+        "driver":{type:"bool","include":["car"],"exclude":["plane"],"elective":true},
+
+        "maggie":{type:"bool","elective":true},
+
         //string
         "name":{
             type:"string",
@@ -243,6 +287,36 @@ fn check() {
     };
 
     let data = object! {
+
+        "class":{
+            "group":[
+                {"name":"akku","age":26,"new":false}
+            ]
+        },
+
+        "school":{
+            "one":{
+                "class":{
+                    "group":[
+                        {"name":"akku","age":26,"new":false}
+                    ]
+                }
+            },
+            "two":{
+                "class":{
+                    "group":[
+                        {"name":"akku","age":26,"new":false}
+                    ]
+                }
+            },
+        },
+
+        // "engine":true,
+        // "plane":true,
+        // "pilot":true,
+        // "driver":true,
+
+        "maggie":false,
         
         //string
         "name":"akku",
@@ -339,37 +413,35 @@ fn check() {
 
     };
 
-    
-
     let run = validate(
         &format,
         &data,
         "dynamic",
-        14
+        21
     );
 
     println!("validate : {:?}",run);
 
-    let c_big = compressor::compress(data).unwrap();
+    // let c_big = compressor::compress(data).unwrap();
 
-    println!("c_big : {}",c_big);
+    // println!("c_big : {}",c_big);
 
-    let c_small = compressor::compress(object!{
-        name:"akku",akku:"name",age:"99","99":"age"
-    }).unwrap();
+    // let c_small = compressor::compress(object!{
+    //     name:"akku",akku:"name",age:"99","99":"age"
+    // }).unwrap();
 
-    println!("c_small : {}",c_small);
+    // println!("c_small : {}",c_small);
 
-    println!("c_big decompress : {:?}",compressor::decompress(&c_big).is_ok());
+    // println!("c_big decompress : {:?}",compressor::decompress(&c_big).is_ok());
 
-    println!("c_small decompress : {:?}",compressor::decompress(&c_small).is_ok());
+    // println!("c_small decompress : {:?}",compressor::decompress(&c_small).is_ok());
 
-    let mut _c_test = object!{};
-    for i in 1..10000{
-        _c_test[i.to_string()] = format!("sa987das987das98d7as987d7d {i}").into();
-    }
-    let c_test = compressor::compress(_c_test).unwrap();
-    println!("c_test decompress : {:?}",compressor::decompress(&c_test).is_ok());
+    // let mut _c_test = object!{};
+    // for i in 1..10000{
+    //     _c_test[i.to_string()] = format!("sa987das987das98d7as987d7d {i}").into();
+    // }
+    // let c_test = compressor::compress(_c_test).unwrap();
+    // println!("c_test decompress : {:?}",compressor::decompress(&c_test).is_ok());
 
     
 

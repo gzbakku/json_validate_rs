@@ -14,6 +14,45 @@ fn check() {
         //dynamic validation allows undefined fields
         //static validation only allows defined fields
 
+        //definitions
+        //these definitions can be used in place of key rules,children_schema and schema objects
+        "$_DEFINE_$":{
+            name:{type:"string",min:1,max:100,options:["akku"]},
+            age:{type:"number",min:1,max:100},
+            new:{type:"bool"},
+            person_schema:{
+                name:"name",
+                age:"age",
+                new:"new"
+            },
+            group:{type:"array",min:1,max:10,validate:{
+                children_type:"object",
+                children_schema:"person_schema"
+            }},
+            class:{type:"object",min:1,max:1,validate:{
+                schema:{
+                    group:"group"
+                }
+            }},
+            school:{type:"object",min:1,max:10,validate:{
+                //only these keys will be allowed in a object
+                valid_keys:["one","two","three"],
+                children_schema:{
+                    class:"class"
+                }
+            }},
+        },
+
+        "class":"class",
+
+        "school":"school",
+
+        "engine":{type:"bool","include_any":["plane","car"],"elective":true},
+        "plane":{type:"bool","include":["pilot","engine"],"exclude":["car"],"elective":true},
+        "car":{type:"bool","include":["driver","engine"],"exclude":["pilot"],"elective":true},
+        "pilot":{type:"bool","include":["plane"],"exclude":["car"],"elective":true},
+        "driver":{type:"bool","include":["car"],"exclude":["plane"],"elective":true},
+
         //string
         "name":{
             type:"string",
@@ -91,9 +130,9 @@ fn check() {
                 //check each string value of array is unique
                 "unique":true,
                 //checks min string len
-                "min_string":1,
+                "min_string":3,
                 //checks max string len
-                "max_string":100
+                "max_string":10
             },
             "elective":true
         },
@@ -106,6 +145,11 @@ fn check() {
                 "children_type":"object",
                 //nested object validation
                 "validate_nested_object":{
+                    //checks min key len
+                    "min_key_size":1,
+                    //checks min key len
+                    "max_key_size":10,
+                    //checks child data type
                     "children_type":"number"
                 }
             },
@@ -194,6 +238,34 @@ fn check() {
     };
 
     let data = object! {
+
+        "class":{
+            "group":[
+                {"name":"akku","age":26,"new":false}
+            ]
+        },
+
+        "school":{
+            "one":{
+                "class":{
+                    "group":[
+                        {"name":"akku","age":26,"new":false}
+                    ]
+                }
+            },
+            "two":{
+                "class":{
+                    "group":[
+                        {"name":"akku","age":26,"new":false}
+                    ]
+                }
+            },
+        },
+
+        "engine":true,
+        "plane":true,
+        "pilot":true,
+        // "driver":true,
         
         //string
         "name":"akku",
@@ -294,11 +366,12 @@ fn check() {
         &format,
         &data,
         "dynamic",
-        14
+        21
     );
 
-    println!("run : {:?}",run);
+    println!("validate : {:?}",run);
 
 }
+
 
 ```
