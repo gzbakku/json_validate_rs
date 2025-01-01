@@ -91,16 +91,19 @@ fn check() {
 
         "school":"school",
 
-        //include exclude and include_any keys 
+        //include, exclude, else, else_any and include_any keys 
         //these will check fellow keys in object if self is present
         //include any will trigger if all keys are missing
-        "engine":{type:"bool","include_any":["plane","car"],"else":["maggie"],"elective":true},
+        //else and else_any only triggers is self is missing
+        //else_any will only fail if all keys are missing
+        "engine":{type:"bool","include_any":["plane","car"],"else_any":["maggie","brie"],"elective":true},
         "plane":{type:"bool","include":["pilot","engine"],"exclude":["car"],"elective":true},
         "car":{type:"bool","include":["driver","engine"],"exclude":["pilot"],"elective":true},
         "pilot":{type:"bool","include":["plane"],"exclude":["car"],"elective":true},
         "driver":{type:"bool","include":["car"],"exclude":["plane"],"elective":true},
 
         "maggie":{type:"bool","elective":true},
+        "brie":{type:"bool","elective":true},
 
         //string
         "name":{
@@ -317,6 +320,7 @@ fn check() {
         // "driver":true,
 
         "maggie":false,
+        "brie":true,
         
         //string
         "name":"akku",

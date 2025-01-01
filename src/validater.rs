@@ -14,7 +14,7 @@ pub enum FormatError{
     ChildrenTypeMissing,InvalidChildrenType,
     InvalidArrayUniqueKeyType,InvalidMinMaxValues,
     InvalidMinKeySize,InvalidMaxKeySize,StringRuleNotDefined(String),InvalidChildrenSchema,StringRulesMissing(String),ValidKeyNotString,InvalidValidateRuleAction(String),
-    IncludeIsNotString,ExcludeIsNotString,ElseIsNotString
+    IncludeIsNotString,ExcludeIsNotString,ElseIsNotString,ElseAnyIsNotString
 }
 
 #[derive(Debug)]
@@ -32,7 +32,7 @@ pub enum DataError{
     ArrayUniqueValueNotString,InvalidChildDataType(String,String),
     MinString,MaxString,MaxKeySize,MinKeySize,MissingIncludeKey((String,String)),
     PresentExcludeKey((String,String)),MissingAllIncludeKey(String),
-    ElseKeyMissing(String)
+    ElseKeyMissing(String),ElseAnyKeyMissing(String)
 }
 
 pub fn validate_email(email:&str)->Result<(),RuleError>{
@@ -184,7 +184,7 @@ pub fn run_with_definitions(
                 }
             }
 
-            //ElseIsNotString ElseKeyMissing
+            //ElseAnyIsNotString ElseAnyKeyMissing
 
             if 
                 !data.has_key(key) &&
@@ -200,6 +200,27 @@ pub fn run_with_definitions(
                             else_key.to_string()
                         )).into()); 
                     }
+                }
+            }
+
+            if 
+                !data.has_key(key) &&
+                rules["else_any"].is_array()
+            {
+                let mut found = false;
+                for else_any_key in rules["else_any"].members(){
+                    if !else_any_key.is_string(){
+                        return Err(RuleError::Format(FormatError::ElseAnyIsNotString).into()); 
+                    }
+                    let else_any_key = else_any_key.as_str().unwrap();
+                    if data.has_key(else_any_key){
+                        found = true;
+                    }
+                }
+                if !found{
+                    return Err(RuleError::Data(DataError::ElseAnyKeyMissing(
+                        key.to_string()
+                    )).into()); 
                 }
             }
 
@@ -576,7 +597,9 @@ fn check_validate(
         "array_validate","array_child_type",
         "validate_nested_object","unique_keys",
         "min_string","max_string","min_key_size","max_key_size",
-        "unique","max_size"
+        "unique","max_size","option_required_fields",
+        "include","exclude","include_any","else","else_any",
+        "option_required_fields","options"
     ];
 
     for (key,_) in rule.entries(){

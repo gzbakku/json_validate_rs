@@ -1,5 +1,6 @@
 ```rust
 
+
 fn check() {
 
     let format = object! {
@@ -47,11 +48,19 @@ fn check() {
 
         "school":"school",
 
-        "engine":{type:"bool","include_any":["plane","car"],"elective":true},
+        //include, exclude, else, else_any and include_any keys 
+        //these will check fellow keys in object if self is present
+        //include any will trigger if all keys are missing
+        //else and else_any only triggers is self is missing
+        //else_any will only fail if all keys are missing
+        "engine":{type:"bool","include_any":["plane","car"],"else_any":["maggie","brie"],"elective":true},
         "plane":{type:"bool","include":["pilot","engine"],"exclude":["car"],"elective":true},
         "car":{type:"bool","include":["driver","engine"],"exclude":["pilot"],"elective":true},
         "pilot":{type:"bool","include":["plane"],"exclude":["car"],"elective":true},
         "driver":{type:"bool","include":["car"],"exclude":["plane"],"elective":true},
+
+        "maggie":{type:"bool","elective":true},
+        "brie":{type:"bool","elective":true},
 
         //string
         "name":{
@@ -262,10 +271,13 @@ fn check() {
             },
         },
 
-        "engine":true,
-        "plane":true,
-        "pilot":true,
+        // "engine":true,
+        // "plane":true,
+        // "pilot":true,
         // "driver":true,
+
+        "maggie":false,
+        "brie":true,
         
         //string
         "name":"akku",
@@ -371,7 +383,7 @@ fn check() {
 
     println!("validate : {:?}",run);
 
-}
 
+}
 
 ```
