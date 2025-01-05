@@ -118,6 +118,15 @@ fn check() {
             "min":2,"max":256
         },
 
+        //object key and string value types can be length checked
+        "ages":{type:"object",min:1,max:2,validate:{
+            "children_type":"string",
+            "min_string":3,
+            "max_string":3,
+            "min_key_size":3,
+            "max_key_size":3
+        }},
+
         //bool
         "member":{
             type:"bool",
@@ -315,6 +324,12 @@ fn check() {
                     ]
                 }
             },
+        },
+
+        // here string and value lens can only be 3
+        "ages":{
+            "one":"one",
+            "two":"two"
         },
 
         // "engine":true,

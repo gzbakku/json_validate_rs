@@ -1038,6 +1038,49 @@ fn check_validate(
         }
 
         //----------------------------
+        //check string child len
+        //----------------------------
+
+        if 
+            rule["children_type"] == "string" && 
+            (
+                rule["min_string"].is_number() ||
+                rule["max_string"].is_number()
+            )
+        {
+            let min;
+            if rule["min_string"].as_usize().is_some(){
+                min = Some(rule["min_string"].as_usize().unwrap());
+            } else {
+                min = None;
+            }
+            let max;
+            if rule["max_string"].as_usize().is_some(){
+                max = Some(rule["max_string"].as_usize().unwrap());
+            } else {
+                max = None;
+            }
+            for (_,string_val) in value.entries(){
+                if !string_val.is_string(){
+                    return Err(RuleError::Data(DataError::InvalidDataType));
+                }
+                let string_len = string_val.as_str().unwrap().len();
+                if min.is_some(){
+                    let min = min.as_ref().unwrap();
+                    if string_len < *min{
+                        return Err(RuleError::Data(DataError::MinString));
+                    }
+                }
+                if max.is_some(){
+                    let max = max.as_ref().unwrap();
+                    if string_len > *max{
+                        return Err(RuleError::Data(DataError::MaxString));
+                    }
+                }
+            }
+        }
+
+        //----------------------------
         //check validate_nested_object
         //----------------------------
 
