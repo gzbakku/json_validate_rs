@@ -599,7 +599,7 @@ fn check_validate(
         "min_string","max_string","min_key_size","max_key_size",
         "unique","max_size","option_required_fields",
         "include","exclude","include_any","else","else_any",
-        "option_required_fields","options"
+        "option_required_fields","options","required_fields"
     ];
 
     for (key,_) in rule.entries(){
