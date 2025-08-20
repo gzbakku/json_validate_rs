@@ -730,27 +730,24 @@ fn check_validate(
                 let u_key = item.as_str().unwrap().to_string();
                 let mut map = HashSet::new();
                 for item in value.members(){
-                    if !item.has_key(&u_key){
-                        return Err(RuleError::Data(
-                            DataError::ArrayUniqueKeyNotFound(u_key)
-                        ));
-                    }
-                    if !item[&u_key].is_string(){
-                        return Err(RuleError::Data(
-                            DataError::ArrayUniqueKeyNotStringType(u_key)
-                        ));
-                    }
-                    let u_key_val = item[&u_key].as_str().unwrap();
-                    // println!("u_key_val : {u_key_val}");
-                    if map.contains(u_key_val){
-                        return Err(RuleError::Data(
-                            DataError::ArrayUniqueKeyDuplicate(
-                                u_key,
-                                u_key_val.to_string()
-                            )
-                        ));
-                    } else {
-                        map.insert(u_key_val);
+                    if item.has_key(&u_key){
+                        if !item[&u_key].is_string(){
+                            return Err(RuleError::Data(
+                                DataError::ArrayUniqueKeyNotStringType(u_key)
+                            ));
+                        }
+                        let u_key_val = item[&u_key].as_str().unwrap();
+                        // println!("u_key_val : {u_key_val}");
+                        if map.contains(u_key_val){
+                            return Err(RuleError::Data(
+                                DataError::ArrayUniqueKeyDuplicate(
+                                    u_key,
+                                    u_key_val.to_string()
+                                )
+                            ));
+                        } else {
+                            map.insert(u_key_val);
+                        }
                     }
                 } 
             }
